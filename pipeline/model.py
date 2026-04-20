@@ -60,8 +60,26 @@ def preprocess_data(X_raw: pd.DataFrame, training_columns: List[str] = None, inc
     # SUGGESTION 1: Mathematical Strictness. Ensure UI Strings perfectly map to numerical labels 
     # instead of depending on pandas fallback dummy logic that fills unknown strings with 0.
     if "OCCUPATION_TYPE" in X_processed.columns and pd.api.types.is_string_dtype(X_processed["OCCUPATION_TYPE"]):
-        # Member B: Please expand this mapping dictionary based on final_merged_cleaned.csv labels!
-        OCCUPATION_MAP = {"Laborers": 8.0} 
+        OCCUPATION_MAP = {
+        "Accountants":          0.0,
+        "Cleaning staff":       1.0,
+        "Cooking staff":        2.0,
+        "Core staff":           3.0,
+        "Drivers":              4.0,
+        "HR staff":             5.0,
+        "High skill tech staff":6.0,
+        "IT staff":             7.0,
+        "Laborers":             8.0,
+        "Low-skill Laborers":   9.0,
+        "Managers":             10.0,
+        "Medicine staff":       11.0,
+        "Private service staff":12.0,
+        "Realty agents":        13.0,
+        "Sales staff":          14.0,
+        "Secretaries":          15.0,
+        "Security staff":       16.0,
+        "Waiters/barmen staff": 17.0
+        }
         X_processed["OCCUPATION_TYPE"] = X_processed["OCCUPATION_TYPE"].map(OCCUPATION_MAP).fillna(0.0)
         
     X_processed = pd.get_dummies(X_processed, drop_first=True)

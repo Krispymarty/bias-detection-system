@@ -9,3 +9,5 @@ shap
 fairlearn
 google-generativeai
 pydantic
+python-dotenv
+matplotlib

@@ -1,5 +1,5 @@
 # ======================
-# 🐍 Python
+# Python
 # ======================
 __pycache__/
 *.py[cod]
@@ -7,7 +7,7 @@ __pycache__/
 *.pyd
 
 # ======================
-# 📦 Virtual Environment
+# Virtual Environment
 # ======================
 venv/
 env/
@@ -15,7 +15,7 @@ env/
 .env/
 
 # ======================
-# 📊 Data Files (IMPORTANT)
+# Data Files (IMPORTANT)
 # ======================
 data/
 *.csv
@@ -23,42 +23,45 @@ data/
 *.parquet
 
 # ======================
-# 🧠 Model Files
+# Model Files
 # ======================
 *.pkl
 *.joblib
 *.h5
+!pipeline/*.joblib
 
 # ======================
-# 📁 Logs
+# Logs
 # ======================
 *.log
+logs/
 
 # ======================
-# 🌐 Streamlit
+# Streamlit
 # ======================
 .streamlit/
 
 # ======================
-# 🧪 Jupyter Notebook
+# Jupyter Notebook
 # ======================
 .ipynb_checkpoints/
 
 # ======================
-# 💻 OS Files
+# OS Files
 # ======================
 .DS_Store
 Thumbs.db
 
 # ======================
-# 🔐 Secrets / Credentials
+# Secrets / Credentials
 # ======================
 *.env
 *.key
 *.json
+!pipeline/*.json
 
 # ======================
-# 🔧 Build / Cache
+# Build / Cache
 # ======================
 build/
 dist/

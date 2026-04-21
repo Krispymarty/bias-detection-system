@@ -13,9 +13,10 @@ Building a production-ready **AI Fairness Auditor** for the Google Solution Chal
 
 ### Step 1: Core ML Pipeline & Preprocessing (`model.py`)
 *   **Status:** DONE
-*   **Tech Stack:** `XGBoost`, `pandas`, `joblib`
+*   **Tech Stack:** `XGBoost`, `Random Forest`, `pandas`, `joblib`
 *   **What it does:** Modularity and inference safety (dynamic `AGE` calculation, `INCOME_GROUP` bucketing, strict column matching).
-*   ✅ **Update:** Explicit `OCCUPATION_MAP` string-to-float lookup mechanism dynamically integrated to bypass flawed Pandas dummy defaults.
+*   ✅ **Update 1:** Explicit `OCCUPATION_MAP` string-to-float lookup mechanism dynamically integrated to bypass flawed Pandas dummy defaults.
+*   ✅ **Update 2:** MLOps Tournament implemented. Natively evaluates algorithms using StratifiedKFold + RandomizedSearchCV (with early stopping) and automatically computes the optimal F1-score threshold before baking `production_model_v1.joblib` (Achieved ROC-AUC 0.7319).
 
 ### Step 2: Bias Detection Engine (`bias.py`)
 *   **Status:** DONE
@@ -46,12 +47,17 @@ To ensure parallel development, we have divided into **Team 1: Brain (Logic/API)
 *   ✅ **Task 2:** Multi-Domain Switching (Lending vs Hiring logic)
 *   ✅ **Task 4:** Counterfactual Logic ("Path to approval" loop)
 *   ✅ **Task 5 (New):** Pydantic Adversarial Defense (Strict bounds like `AGE: 18-100` implemented on API).
-*   ⏳ **Task 3: Cloud Deployment (MLOps)** -> *NEXT IMMEDIATE STEP:* Write `Dockerfile` and deploy backend to **Google Cloud Run**.
+*   ✅ **Task 6 (New):** MLOps API Architecture (Integrated `<500ms` SLA Latency Logging, extracted logic routing, added specific Exception tracebacks).
+*   ✅ **Task 7 (New):** Model Serialization format (Bakes exact feature names, feature importances, training config, and version strings into `.joblib`).
+*   ✅ **Task 8 (New):** Analytics Backend (Added prediction `confidence` logic directly to API payloads and structured JSON inference logging for downstream cloud metrics tracking).
+*   ✅ **Task 9 (New):** Categorical Inference Safety (Fixed critical Pandas dummy zeroing bug ensuring single-row API inputs natively preserve sensitive values like `CODE_GENDER` instead of destroying them to baseline zeros).
+*   ✅ **Task 10 (New):** Project Folder Reorganization (Cleaned up root directory into `logs/`, `reports/`, `scripts/`, and `pipeline/` for production readiness).
+*   ⏳ **Task 3: Cloud Deployment (MLOps)** -> *NEXT IMMEDIATE STEP:* Member B has finished the Fairlearn and LLM hooks into `main.py`. Ready to execute the final `Dockerfile` build and deploy to Google Cloud Run.
 
 **Member B: Fairness & Explainability Specialist**
 *   ✅ **Task 1 (New): SHAP Integration & Slicing:** Crack open the XGBoost model to provide feature contributions (`explainability.py`). (API payload defense implemented: SHAP matrices must be sliced to TOP 5 to prevent latency spikes).
-*   ⏳ **Task 2: Fairlearn Mitigation:** Implement `ThresholdOptimizer` to correct the 17% Demographic Parity bias.
-*   ⏳ **Task 3: Gemini Agent:** Turn SHAP arrays into natural language audit logs.
+*   ✅ **Task 2: Fairlearn Mitigation:** Implement `ThresholdOptimizer` to correct the 17% Demographic Parity bias (completed via `python_mitigation.py`).
+*   ✅ **Task 3: Gemini Agent:** Turn SHAP arrays into natural language audit logs (completed via `shap_llm_explainer.py`).
 *   ✅ **Task 4 (New): Intersectional Bias:** Audit `CODE_GENDER_M` + `AGE` simultaneously. (API has been dynamically refactored to accept any `sensitive_col`).
 
 ### 🖥️ Team 2 (The UI, DB, & Automation)

@@ -1,0 +1,39 @@
+# Version Control
+.git
+.gitignore
+
+# Environment Variables & Secrets
+.env
+*.env
+secret/
+
+# Python Cache & Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+env.bak/
+venv.bak/
+
+# Project Specific
+logs/
+reports/
+scripts/
+api_audit.jsonl
+*.png
+
+# Exclude development tests
+test_*.py
+
+# Large data files
+data/*.csv
+!data/final_merged_cleaned.csv
+
+# Allow pipeline joblib models but block anything else random
+pipeline/*.tmp
+!pipeline/*.joblib
+!pipeline/*.json

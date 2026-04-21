@@ -1,0 +1,106 @@
+{
+  "description": "Fairlearn ThresholdOptimizer mitigation results. Use /predict/fair endpoint to get bias-mitigated predictions.",
+  "constraint": "equalized_odds",
+  "sensitive_feature": "CODE_GENDER_M_AND_AGE",
+  "test_size": 0.2,
+  "baseline_model": {
+    "roc_auc": 0.7319,
+    "accuracy": 0.6744,
+    "selection_rate_gap": 0.2148,
+    "tpr_gap": 0.2148,
+    "fpr_gap": 0.2148,
+    "fnr_gap": 0.2148,
+    "by_group": {
+      "Female_Older": {
+        "selection_rate": 0.2675,
+        "true_positive_rate": 0.5489,
+        "false_positive_rate": 0.2509,
+        "false_negative_rate": 0.4511,
+        "count": 24422.0
+      },
+      "Female_Younger": {
+        "selection_rate": 0.3754,
+        "true_positive_rate": 0.6737,
+        "false_positive_rate": 0.3454,
+        "false_negative_rate": 0.3263,
+        "count": 16141.0
+      },
+      "Male_Older": {
+        "selection_rate": 0.3812,
+        "true_positive_rate": 0.6774,
+        "false_positive_rate": 0.3521,
+        "false_negative_rate": 0.3226,
+        "count": 10046.0
+      },
+      "Male_Younger": {
+        "selection_rate": 0.4823,
+        "true_positive_rate": 0.7797,
+        "false_positive_rate": 0.4444,
+        "false_negative_rate": 0.2203,
+        "count": 10894.0
+      }
+    }
+  },
+  "fair_model": {
+    "roc_auc": 0.7319,
+    "accuracy": 0.6656,
+    "selection_rate_gap": 0.0152,
+    "tpr_gap": 0.0152,
+    "fpr_gap": 0.0152,
+    "fnr_gap": 0.0152,
+    "by_group": {
+      "Female_Older": {
+        "selection_rate": 0.3509,
+        "true_positive_rate": 0.6299,
+        "false_positive_rate": 0.3345,
+        "false_negative_rate": 0.3701,
+        "count": 24422.0
+      },
+      "Female_Younger": {
+        "selection_rate": 0.358,
+        "true_positive_rate": 0.6175,
+        "false_positive_rate": 0.3318,
+        "false_negative_rate": 0.3825,
+        "count": 16141.0
+      },
+      "Male_Older": {
+        "selection_rate": 0.3599,
+        "true_positive_rate": 0.6429,
+        "false_positive_rate": 0.3321,
+        "false_negative_rate": 0.3571,
+        "count": 10046.0
+      },
+      "Male_Younger": {
+        "selection_rate": 0.3661,
+        "true_positive_rate": 0.674,
+        "false_positive_rate": 0.3269,
+        "false_negative_rate": 0.326,
+        "count": 10894.0
+      }
+    }
+  },
+  "improvement": {
+    "auc_change": 0.0,
+    "accuracy_change": -0.0088,
+    "selection_rate_gap_change": -0.1996,
+    "tpr_gap_change": -0.1996,
+    "fpr_gap_change": -0.1996
+  },
+  "api_usage": {
+    "biased_endpoint": "POST /predict/biased  -- original XGBoost",
+    "fair_endpoint": "POST /predict/fair    -- ThresholdOptimizer",
+    "input_format": {
+      "CODE_GENDER_M": "int (0=Female, 1=Male)",
+      "AGE": "int (years)",
+      "OCCUPATION_TYPE": "int (label-encoded)",
+      "AMT_INCOME_TOTAL": "float",
+      "AMT_CREDIT": "float",
+      "AMT_ANNUITY": "float",
+      "EXT_SOURCE_2": "float (0.0-1.0)",
+      "EXT_SOURCE_3": "float (0.0-1.0)",
+      "INCOME_GROUP_Medium": "int (0 or 1)",
+      "INCOME_GROUP_High": "int (0 or 1)"
+    },
+    "note": "Fair endpoint requires CODE_GENDER_M in the request body so ThresholdOptimizer can apply the correct threshold. It is used only to select the threshold -- not as a prediction feature."
+  }
+}

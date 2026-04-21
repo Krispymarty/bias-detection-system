@@ -1,8 +1,15 @@
 import pandas as pd
 import numpy as np
 import joblib
+import logging
+import os
 from xgboost import XGBClassifier
-from typing import Tuple, List, Union, Any, Dict
+from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV, train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import precision_recall_curve
+from typing import Tuple, List, Union, Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 # Selected features critical for fairness auditing and UI what-if simulators
 SELECTED_FEATURES = [
@@ -19,7 +26,11 @@ SELECTED_FEATURES = [
     "EXT_SOURCE_3"
 ]
 
-def preprocess_data(X_raw: pd.DataFrame, training_columns: List[str] = None, income_bins: np.ndarray = None) -> Tuple[pd.DataFrame, List[str], np.ndarray]:
+def preprocess_data(
+    X_raw: pd.DataFrame, 
+    training_columns: Optional[List[str]] = None, 
+    income_bins: Optional[np.ndarray] = None
+) -> Tuple[pd.DataFrame, List[str], np.ndarray]:
     """
     Preprocesses the data by engineering features, filling missing values, and one-hot encoding.
     Ensures that prediction data exactly matches training data structure.
@@ -33,11 +44,17 @@ def preprocess_data(X_raw: pd.DataFrame, training_columns: List[str] = None, inc
         Tuple containing preprocessed DataFrame, final column list, and income bins.
     """
     X = X_raw.copy()
+    logger.debug(f"Starting preprocessing for {len(X)} records.")
     
     # --- 1. FEATURE ENGINEERING ---
     # Convert DAYS_BIRTH to AGE
     if "DAYS_BIRTH" in X.columns:
         X["AGE"] = (-X["DAYS_BIRTH"]) // 365
+        
+    # Translate API string payload to expected CSV integer column securely
+    if "CODE_GENDER" in X.columns:
+        X["CODE_GENDER_M"] = (X["CODE_GENDER"] == "M").astype(float)
+        X = X.drop(columns=["CODE_GENDER"])
         
     # Convert AMT_INCOME_TOTAL to INCOME_GROUP (using dynamic bucketing)
     if "AMT_INCOME_TOTAL" in X.columns:
@@ -64,7 +81,7 @@ def preprocess_data(X_raw: pd.DataFrame, training_columns: List[str] = None, inc
         OCCUPATION_MAP = {"Laborers": 8.0} 
         X_processed["OCCUPATION_TYPE"] = X_processed["OCCUPATION_TYPE"].map(OCCUPATION_MAP).fillna(0.0)
         
-    X_processed = pd.get_dummies(X_processed, drop_first=True)
+    X_processed = pd.get_dummies(X_processed)
     
     # --- 4. HANDLE MISSING VALUES ---
     # Median imputation for simplicity (ensuring it's numeric only)
@@ -82,57 +99,146 @@ def preprocess_data(X_raw: pd.DataFrame, training_columns: List[str] = None, inc
     else:
         # If no training_columns provided, we are training. Capture the final columns.
         training_columns = X_processed.columns.tolist()
+        logger.info(f"Captured {len(training_columns)} struct columns during training.")
         
     return X_processed, training_columns, income_bins
 
 
 def train_model(X_train_raw: pd.DataFrame, y_train: pd.Series, **kwargs) -> Dict[str, Any]:
     """
-    Trains an XGBoost classifier and captures the exact preprocessing structure.
-    
-    Args:
-        X_train_raw (pd.DataFrame): Raw training features.
-        y_train (pd.Series): Training labels.
-        **kwargs: Optional hyperparameters for XGBClassifier.
-        
-    Returns:
-        Dict: A bundle containing the model and the training requirements.
+    Trains an XGBoost and RF classifier using RandomizedSearchCV, selects the best, 
+    and optimizes the threshold using the validation set.
     """
     # Preprocess and capture structural invariants
     X_train, training_columns, income_bins = preprocess_data(X_train_raw)
     
-    # Calculate scale_pos_weight to handle class imbalance
-    neg_cases = (y_train == 0).sum()
-    pos_cases = (y_train == 1).sum()
+    # 1. Split a validation set specifically for early stopping & threshold tuning (prevent leakage)
+    X_tr, X_val, y_tr, y_val = train_test_split(X_train, y_train, test_size=0.15, stratify=y_train, random_state=42)
+    
+    # Calculate scale_pos_weight to handle class imbalance for XGBoost
+    neg_cases = (y_tr == 0).sum()
+    pos_cases = (y_tr == 1).sum()
     scale_pos_weight = neg_cases / pos_cases if pos_cases > 0 else 1.0
 
-    model = XGBClassifier(
-        n_estimators=kwargs.get("n_estimators", 100),
-        max_depth=kwargs.get("max_depth", 6),
-        learning_rate=kwargs.get("learning_rate", 0.1),
-        subsample=kwargs.get("subsample", 0.8),
-        colsample_bytree=kwargs.get("colsample_bytree", 0.8),
-        scale_pos_weight=scale_pos_weight,
+    # 2. StratifiedKFold for robust validation
+    skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    
+    # 3. XGBoost Tuning (with early_stopping_rounds in new XGB API)
+    logger.info("Tuning XGBoost...")
+    xgb_model = XGBClassifier(
+        scale_pos_weight=scale_pos_weight, 
+        eval_metric="logloss",
+        early_stopping_rounds=10,
         random_state=42,
-        eval_metric="logloss"
+        n_jobs=-1
     )
+    xgb_params = {
+        "n_estimators": [100, 200, 300, 500],
+        "max_depth": [4, 6, 8, 10],
+        "learning_rate": [0.01, 0.05, 0.1, 0.2],
+        "subsample": [0.6, 0.8, 1.0],
+        "colsample_bytree": [0.6, 0.8, 1.0],
+        "min_child_weight": [1, 3, 5]
+    }
+    xgb_search = RandomizedSearchCV(xgb_model, xgb_params, n_iter=20, scoring="roc_auc", cv=skf, random_state=42, n_jobs=1)
+    # Provide the external eval_set to fit() so the internal XGB estimators can use early stopping
+    xgb_search.fit(X_tr, y_tr, eval_set=[(X_val, y_val)], verbose=False)
     
-    model.fit(X_train, y_train)
+    # 4. Random Forest Tuning
+    logger.info("Tuning Random Forest...")
+    rf_model = RandomForestClassifier(class_weight="balanced", random_state=42, n_jobs=-1)
+    rf_params = {
+        "n_estimators": [100, 200],
+        "max_depth": [6, 10, 15]
+    }
+    rf_search = RandomizedSearchCV(rf_model, rf_params, n_iter=4, scoring="roc_auc", cv=skf, random_state=42, n_jobs=1)
+    rf_search.fit(X_tr, y_tr)
     
-    # Return bundle required for safe frontend inference
+    logger.info(f"XGBoost Best CV AUC: {xgb_search.best_score_:.4f}")
+    logger.info(f"Random Forest Best CV AUC: {rf_search.best_score_:.4f}")
+    
+    # 5. Select Best Model
+    if xgb_search.best_score_ >= rf_search.best_score_:
+        logger.info("XGBoost selected as the ultimate production model.")
+        best_model = xgb_search.best_estimator_
+        model_type = "xgboost"
+        final_auc = xgb_search.best_score_
+    else:
+        logger.info("Random Forest selected as the ultimate production model.")
+        best_model = rf_search.best_estimator_
+        model_type = "random_forest"
+        final_auc = rf_search.best_score_
+
+    # 6. F1-based Threshold Optimization (on Validation set only)
+    logger.info("Optimizing probability threshold using validation set...")
+    y_val_prob = best_model.predict_proba(X_val)[:, 1]
+    precisions, recalls, thresholds = precision_recall_curve(y_val, y_val_prob)
+    
+    # Calculate F1 score for each threshold, avoiding division by zero
+    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
+    optimal_idx = np.argmax(f1_scores)
+    optimal_threshold = thresholds[optimal_idx] if optimal_idx < len(thresholds) else 0.5
+    
+    logger.info(f"Optimal Validation F1 Score: {f1_scores[optimal_idx]:.4f}")
+    logger.info(f"Optimal Threshold Shifted From 0.5 to: {optimal_threshold:.4f}")
+    
+    # Extract Feature Importances
+    try:
+        importances = best_model.feature_importances_
+        top_idx = np.argsort(importances)[::-1][:5]
+        top_features = {training_columns[i]: float(importances[i]) for i in top_idx}
+    except Exception as e:
+        logger.warning(f"Could not extract feature importances: {e}")
+        top_features = {}
+        
+    # User Requested Final Log Overview
+    print("\n" + "="*50)
+    print("== TRAINING SUMMARY ==")
+    print(f"Best Model: {model_type.upper()}")
+    print(f"ROC-AUC: {final_auc:.4f}")
+    print(f"Threshold: {optimal_threshold:.2f}")
+    if top_features:
+        print(f"Top Feature: {list(top_features.keys())[0]} ({list(top_features.values())[0]:.4f})")
+    print("="*50 + "\n")
+
+    # 7. Save advanced bundle metadata
     return {
-        "model": model,
-        "training_columns": training_columns,
-        "income_bins": income_bins
+        "model": best_model,
+        "model_type": model_type,
+        "version": "v1",
+        "roc_auc": float(final_auc),
+        "features": training_columns, # Standardized name
+        "feature_importances": top_features,
+        "training_columns": training_columns, # Legacy support
+        "income_bins": income_bins,
+        "optimal_threshold": float(optimal_threshold),
+        "training_config": {
+            "cv_folds": 3,
+            "search_type": "randomized_search",
+            "early_stopping_rounds": 10,
+            "validation_split": 0.15
+        }
     }
 
 def save_model(model_bundle: Dict[str, Any], filepath: str) -> None:
-    """Saves the trained model bundle to disk."""
-    joblib.dump(model_bundle, filepath)
+    """Saves the trained model bundle to disk safely."""
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+        joblib.dump(model_bundle, filepath)
+        logger.info(f"Model successfully saved to {filepath}")
+    except Exception as e:
+        logger.error(f"Failed to save model to {filepath}: {e}")
+        raise
 
 def load_model(filepath: str) -> Dict[str, Any]:
-    """Loads a trained model bundle from disk."""
-    return joblib.load(filepath)
+    """Loads a trained model bundle from disk securely."""
+    try:
+        model = joblib.load(filepath)
+        logger.info(f"Model successfully loaded from {filepath}")
+        return model
+    except Exception as e:
+        logger.error(f"Failed to load model from {filepath}: {e}")
+        raise
 
 def predict(model_bundle: Dict[str, Any], X_raw: pd.DataFrame) -> Union[Tuple[int, float], Tuple[List[int], List[float]]]:
     """
@@ -149,8 +255,13 @@ def predict(model_bundle: Dict[str, Any], X_raw: pd.DataFrame) -> Union[Tuple[in
         income_bins=income_bins
     )
     
+    logger.debug(f"Running exact strict schema inference for {len(X_processed)} records.")
+    
     probabilities = model.predict_proba(X_processed)[:, 1]
-    predictions = (probabilities >= 0.5).astype(int)
+    
+    # Use the optimized threshold instead of the naive 0.5
+    optimal_threshold = model_bundle.get("optimal_threshold", 0.5)
+    predictions = (probabilities >= optimal_threshold).astype(int)
     
     if len(X_processed) == 1:
         return int(predictions[0]), float(probabilities[0])

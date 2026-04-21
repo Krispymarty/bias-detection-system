@@ -233,10 +233,10 @@ def compute_baseline_metrics(model, X_test, y_test, sensitive_test):
     print(f"\n  Fairness metrics by gender:")
     print(mf.by_group.to_string())
     print(f"\n  Disparities (max - min across groups):")
-    print(f"    Selection rate gap   : {mf.difference(selection_rate):.4f}")
-    print(f"    True positive rate   : {mf.difference(true_positive_rate):.4f}")
-    print(f"    False positive rate  : {mf.difference(false_positive_rate):.4f}")
-    print(f"    False negative rate  : {mf.difference(false_negative_rate):.4f}")
+    print(f"    Selection rate gap   : {float(mf.difference(method='between_groups').iloc[0]):.4f}")
+    print(f"    True positive rate   : {float(mf.difference(method='between_groups').iloc[0]):.4f}")
+    print(f"    False positive rate  : {float(mf.difference(method='between_groups').iloc[0]):.4f}")
+    print(f"    False negative rate  : {float(mf.difference(method='between_groups').iloc[0]):.4f}")
 
     return {
         "roc_auc":           round(auc, 4),
@@ -244,10 +244,10 @@ def compute_baseline_metrics(model, X_test, y_test, sensitive_test):
         "y_pred":            y_pred_base,
         "y_proba":           y_proba_base,
         "metric_frame":      mf,
-        "selection_rate_gap":    round(mf.difference(selection_rate), 4),
-        "tpr_gap":               round(mf.difference(true_positive_rate), 4),
-        "fpr_gap":               round(mf.difference(false_positive_rate), 4),
-        "fnr_gap":               round(mf.difference(false_negative_rate), 4),
+        "selection_rate_gap":    round(float(mf.difference(method='between_groups').iloc[0]), 4),
+        "tpr_gap":               round(float(mf.difference(method='between_groups').iloc[0]), 4),
+        "fpr_gap":               round(float(mf.difference(method='between_groups').iloc[0]), 4),
+        "fnr_gap":               round(float(mf.difference(method='between_groups').iloc[0]), 4),
         "by_group":              mf.by_group.to_dict(),
     }
 
@@ -348,10 +348,10 @@ def compute_fair_metrics(optimizer, X_test, y_test, sensitive_test):
     print(f"\n  Fairness metrics by gender (after mitigation):")
     print(mf_fair.by_group.to_string())
     print(f"\n  Disparities AFTER mitigation:")
-    print(f"    Selection rate gap : {mf_fair.difference(selection_rate):.4f}")
-    print(f"    True positive rate : {mf_fair.difference(true_positive_rate):.4f}")
-    print(f"    False positive rate: {mf_fair.difference(false_positive_rate):.4f}")
-    print(f"    False negative rate: {mf_fair.difference(false_negative_rate):.4f}")
+    print(f"    Selection rate gap : {float(mf_fair.difference(method='between_groups').iloc[0]):.4f}")
+    print(f"    True positive rate : {float(mf_fair.difference(method='between_groups').iloc[0]):.4f}")
+    print(f"    False positive rate: {float(mf_fair.difference(method='between_groups').iloc[0]):.4f}")
+    print(f"    False negative rate: {float(mf_fair.difference(method='between_groups').iloc[0]):.4f}")
 
     return {
         "roc_auc":           round(auc, 4),
@@ -359,10 +359,10 @@ def compute_fair_metrics(optimizer, X_test, y_test, sensitive_test):
         "y_pred":            y_pred_fair,
         "y_proba":           y_proba_fair,
         "metric_frame":      mf_fair,
-        "selection_rate_gap":    round(mf_fair.difference(selection_rate), 4),
-        "tpr_gap":               round(mf_fair.difference(true_positive_rate), 4),
-        "fpr_gap":               round(mf_fair.difference(false_positive_rate), 4),
-        "fnr_gap":               round(mf_fair.difference(false_negative_rate), 4),
+        "selection_rate_gap":    round(float(mf_fair.difference(method='between_groups').iloc[0]), 4),
+        "tpr_gap":               round(float(mf_fair.difference(method='between_groups').iloc[0]), 4),
+        "fpr_gap":               round(float(mf_fair.difference(method='between_groups').iloc[0]), 4),
+        "fnr_gap":               round(float(mf_fair.difference(method='between_groups').iloc[0]), 4),
         "by_group":              mf_fair.by_group.to_dict(),
     }
 

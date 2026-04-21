@@ -1,30 +1,45 @@
 """
 pipeline/mitigation.py
-Loads the pre-trained fair_model.joblib (produced by standalone mitigation.py)
-and exposes prediction functions for the FastAPI /v1/audit endpoint.
+
+PURPOSE: FastAPI module — loads the pre-trained fair_model.joblib
+         (produced by running standalone mitigation.py once) and
+         exposes prediction functions for the /v1/audit endpoint.
+
+DO NOT RUN THIS DIRECTLY.
+Run standalone mitigation.py first to generate outputs/fair_model.joblib.
+Then FastAPI imports this module and calls predict_mitigated() per request.
 """
 
-import joblib
 import os
+import joblib
 import numpy  as np
 import pandas as pd
-
 
 # Path to the fair model saved by standalone mitigation.py
 FAIR_MODEL_PATH = "outputs/fair_model.joblib"
 
 
-def load_fair_model():
+def load_fair_model() -> dict:
     """
-    Loads the ThresholdOptimizer bundle saved by mitigation.py.
-    Returns None with a warning if file doesn't exist yet.
+    Loads the ThresholdOptimizer bundle saved by standalone mitigation.py.
+
+    Returns:
+        dict with keys 'fair_model' and 'training_columns'
+        Returns None with warning if file doesn't exist yet.
+
+    Called once at FastAPI startup in app/main.py:
+        fair_bundle = load_fair_model()
     """
     if not os.path.exists(FAIR_MODEL_PATH):
-        print(f"[mitigation] WARNING: {FAIR_MODEL_PATH} not found. "
-              f"Run standalone mitigation.py first to generate it.")
+        print(
+            f"[mitigation] WARNING: {FAIR_MODEL_PATH} not found.\n"
+            f"Run standalone mitigation.py first to generate it.\n"
+            f"Command: python mitigation.py"
+        )
         return None
+
     bundle = joblib.load(FAIR_MODEL_PATH)
-    print(f"[mitigation] Fair model loaded from {FAIR_MODEL_PATH}")
+    print(f"[mitigation] Fair model loaded OK from {FAIR_MODEL_PATH}")
     return bundle
 
 
@@ -34,33 +49,53 @@ def predict_mitigated(fair_bundle: dict,
     """
     Run inference through the fairness-corrected ThresholdOptimizer model.
 
+    How it works:
+        ThresholdOptimizer does NOT retrain the model. It applies a
+        DIFFERENT decision threshold per gender group so that True
+        Positive Rate and False Positive Rate are equal across genders
+        (EqualizedOdds constraint). This is the fair version of prediction.
+
     Args:
         fair_bundle  : bundle loaded by load_fair_model()
-        X_input      : preprocessed feature DataFrame (same columns as biased model)
-        gender_value : 0 = Female, 1 = Male (from the API request)
+                       must have keys 'fair_model', 'training_columns'
+        X_input      : preprocessed feature DataFrame
+                       (same columns as the biased model expects)
+        gender_value : int — 0 = Female, 1 = Male
+                       (taken directly from the API request body)
 
     Returns:
-        dict with prediction, probability, and constraint info
+        dict with keys:
+            prediction  : 0 (approve) or 1 (reject)
+            probability : float 0.0-1.0 or None if not available
+            decision    : "APPROVED" or "REJECTED"
+            model_type  : "fair"
+            constraint  : "equalized_odds"
     """
-    fair_model       = fair_bundle["fair_model"]        # ThresholdOptimizer
+    fair_model       = fair_bundle["fair_model"]       # ThresholdOptimizer object
     training_columns = fair_bundle["training_columns"]
 
-    # Align columns
+    # Align input columns to exact training order
     X_aligned = X_input.reindex(columns=training_columns, fill_value=0)
 
-    # ThresholdOptimizer needs gender label as string — same as how it was trained
+    # ThresholdOptimizer was trained with string labels "Male"/"Female"
+    # (see standalone mitigation.py line: .map({0: "Female", 1: "Male"}))
+    # We must pass the same string format here
     gender_label = "Male" if gender_value == 1 else "Female"
     sensitive    = pd.Series([gender_label])
 
+    # Get fair prediction
     prediction = int(fair_model.predict(X_aligned, sensitive_features=sensitive)[0])
 
-    # Try to get probability — ThresholdOptimizer may not support predict_proba
+    # Try to get probability — ThresholdOptimizer sometimes doesn't support this
     try:
         probability = float(
-            fair_model.predict_proba(X_aligned, sensitive_features=sensitive)[0][1]
+            fair_model.predict_proba(
+                X_aligned, sensitive_features=sensitive
+            )[0][1]
         )
     except Exception:
-        # Fallback: use the original biased model's probability as reference
+        # If predict_proba not available, return None
+        # app/main.py will fall back to biased model's probability
         probability = None
 
     return {
@@ -77,9 +112,20 @@ def compare_bias_before_after(y_test,
                                pred_mitigated: np.ndarray,
                                sensitive_test: pd.Series) -> dict:
     """
-    Returns DPD before/after mitigation. Used by test_bias.py to
-    verify improvement. Numbers come from mitigation_report.json
-    if you want to avoid recomputing.
+    Compares Demographic Parity Difference before and after mitigation.
+
+    Used by test_bias.py to verify the improvement.
+    Note: The full report is already in outputs/mitigation_report.json
+    from the standalone script — use that for presentation numbers.
+
+    Args:
+        y_test          : true labels from test set
+        pred_original   : predictions from the original biased model
+        pred_mitigated  : predictions from the fair ThresholdOptimizer
+        sensitive_test  : Series of gender values for the test rows
+
+    Returns:
+        dict showing DPD before, after, and % improvement
     """
     from fairlearn.metrics import demographic_parity_difference
 

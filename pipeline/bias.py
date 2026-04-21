@@ -60,3 +60,44 @@ def run_bias_audit(model_bundle: Dict[str, Any], X_test_raw: pd.DataFrame, y_tes
     bias_metrics = evaluate_bias(y_test, y_pred_series, sensitive_features)
     
     return bias_metrics
+
+def evaluate_intersectional_bias(y_true, y_pred, df_sensitive: pd.DataFrame) -> dict:
+    """
+    Audits bias across multiple sensitive columns simultaneously.
+    Also checks the intersection of the first two columns (e.g. gender x age group).
+
+    Args:
+        y_true        : true labels (TARGET)
+        y_pred        : model predictions
+        df_sensitive  : DataFrame with sensitive columns e.g. CODE_GENDER_M, AGE_GROUP
+
+    Returns:
+        dict with DPD for each individual column and their intersection
+    """
+    from fairlearn.metrics import demographic_parity_difference
+
+    results = {}
+
+    # Check each sensitive column individually
+    for col in df_sensitive.columns:
+        dpd = demographic_parity_difference(
+            y_true, y_pred, sensitive_features=df_sensitive[col]
+        )
+        results[col] = {"demographic_parity_difference": round(float(dpd), 4)}
+
+    # Intersectional: combine first two columns into one composite group label
+    # e.g. "1_young", "0_old" → catches bias that only affects one combination
+    if len(df_sensitive.columns) >= 2:
+        cols      = list(df_sensitive.columns[:2])
+        composite = (
+            df_sensitive[cols[0]].astype(str) + "_" +
+            df_sensitive[cols[1]].astype(str)
+        )
+        dpd_intersect = demographic_parity_difference(
+            y_true, y_pred, sensitive_features=composite
+        )
+        results[f"{cols[0]}_x_{cols[1]}"] = {
+            "demographic_parity_difference": round(float(dpd_intersect), 4)
+        }
+
+    return results

@@ -1,90 +1,202 @@
 {
   "description": "Fairlearn ThresholdOptimizer mitigation results. Use /predict/fair endpoint to get bias-mitigated predictions.",
   "constraint": "equalized_odds",
-  "sensitive_feature": "CODE_GENDER_M_AND_AGE",
+  "sensitive_feature": "GENDER_AGE_INCOME",
   "test_size": 0.2,
   "baseline_model": {
     "roc_auc": 0.7319,
     "accuracy": 0.6744,
-    "selection_rate_gap": 0.2148,
-    "tpr_gap": 0.2148,
-    "fpr_gap": 0.2148,
-    "fnr_gap": 0.2148,
+    "selection_rate_gap": 0.4635,
+    "tpr_gap": 0.4635,
+    "fpr_gap": 0.4635,
+    "fnr_gap": 0.4635,
     "by_group": {
-      "Female_Older": {
-        "selection_rate": 0.2675,
-        "true_positive_rate": 0.5489,
-        "false_positive_rate": 0.2509,
-        "false_negative_rate": 0.4511,
-        "count": 24422.0
+      "Female_Older_High": {
+        "selection_rate": 0.1643,
+        "true_positive_rate": 0.4308,
+        "false_positive_rate": 0.1493,
+        "false_negative_rate": 0.5692,
+        "count": 6124.0
       },
-      "Female_Younger": {
-        "selection_rate": 0.3754,
-        "true_positive_rate": 0.6737,
-        "false_positive_rate": 0.3454,
-        "false_negative_rate": 0.3263,
-        "count": 16141.0
+      "Female_Older_Low": {
+        "selection_rate": 0.3482,
+        "true_positive_rate": 0.6403,
+        "false_positive_rate": 0.3315,
+        "false_negative_rate": 0.3597,
+        "count": 9808.0
       },
-      "Male_Older": {
-        "selection_rate": 0.3812,
-        "true_positive_rate": 0.6774,
-        "false_positive_rate": 0.3521,
-        "false_negative_rate": 0.3226,
-        "count": 10046.0
+      "Female_Older_Medium": {
+        "selection_rate": 0.2488,
+        "true_positive_rate": 0.5288,
+        "false_positive_rate": 0.2311,
+        "false_negative_rate": 0.4712,
+        "count": 8490.0
       },
-      "Male_Younger": {
-        "selection_rate": 0.4823,
-        "true_positive_rate": 0.7797,
-        "false_positive_rate": 0.4444,
-        "false_negative_rate": 0.2203,
-        "count": 10894.0
+      "Female_Younger_High": {
+        "selection_rate": 0.235,
+        "true_positive_rate": 0.5567,
+        "false_positive_rate": 0.209,
+        "false_negative_rate": 0.4433,
+        "count": 3885.0
+      },
+      "Female_Younger_Low": {
+        "selection_rate": 0.4712,
+        "true_positive_rate": 0.748,
+        "false_positive_rate": 0.4406,
+        "false_negative_rate": 0.252,
+        "count": 6274.0
+      },
+      "Female_Younger_Medium": {
+        "selection_rate": 0.3663,
+        "true_positive_rate": 0.6519,
+        "false_positive_rate": 0.3366,
+        "false_negative_rate": 0.3481,
+        "count": 5982.0
+      },
+      "Male_Older_High": {
+        "selection_rate": 0.2567,
+        "true_positive_rate": 0.57,
+        "false_positive_rate": 0.2302,
+        "false_negative_rate": 0.43,
+        "count": 3935.0
+      },
+      "Male_Older_Low": {
+        "selection_rate": 0.5382,
+        "true_positive_rate": 0.7677,
+        "false_positive_rate": 0.5119,
+        "false_negative_rate": 0.2323,
+        "count": 2477.0
+      },
+      "Male_Older_Medium": {
+        "selection_rate": 0.4092,
+        "true_positive_rate": 0.7071,
+        "false_positive_rate": 0.3786,
+        "false_negative_rate": 0.2929,
+        "count": 3634.0
+      },
+      "Male_Younger_High": {
+        "selection_rate": 0.353,
+        "true_positive_rate": 0.7007,
+        "false_positive_rate": 0.3181,
+        "false_negative_rate": 0.2993,
+        "count": 4513.0
+      },
+      "Male_Younger_Low": {
+        "selection_rate": 0.6278,
+        "true_positive_rate": 0.8339,
+        "false_positive_rate": 0.5943,
+        "false_negative_rate": 0.1661,
+        "count": 2066.0
+      },
+      "Male_Younger_Medium": {
+        "selection_rate": 0.5479,
+        "true_positive_rate": 0.8113,
+        "false_positive_rate": 0.511,
+        "false_negative_rate": 0.1887,
+        "count": 4315.0
       }
     }
   },
   "fair_model": {
     "roc_auc": 0.7319,
-    "accuracy": 0.6656,
-    "selection_rate_gap": 0.0152,
-    "tpr_gap": 0.0152,
-    "fpr_gap": 0.0152,
-    "fnr_gap": 0.0152,
+    "accuracy": 0.6048,
+    "selection_rate_gap": 0.0373,
+    "tpr_gap": 0.0373,
+    "fpr_gap": 0.0373,
+    "fnr_gap": 0.0373,
     "by_group": {
-      "Female_Older": {
-        "selection_rate": 0.3509,
-        "true_positive_rate": 0.6299,
-        "false_positive_rate": 0.3345,
-        "false_negative_rate": 0.3701,
-        "count": 24422.0
+      "Female_Older_High": {
+        "selection_rate": 0.4241,
+        "true_positive_rate": 0.6954,
+        "false_positive_rate": 0.4089,
+        "false_negative_rate": 0.3046,
+        "count": 6124.0
       },
-      "Female_Younger": {
-        "selection_rate": 0.358,
-        "true_positive_rate": 0.6175,
-        "false_positive_rate": 0.3318,
-        "false_negative_rate": 0.3825,
-        "count": 16141.0
+      "Female_Older_Low": {
+        "selection_rate": 0.4153,
+        "true_positive_rate": 0.6874,
+        "false_positive_rate": 0.3997,
+        "false_negative_rate": 0.3126,
+        "count": 9808.0
       },
-      "Male_Older": {
-        "selection_rate": 0.3599,
-        "true_positive_rate": 0.6429,
-        "false_positive_rate": 0.3321,
-        "false_negative_rate": 0.3571,
-        "count": 10046.0
+      "Female_Older_Medium": {
+        "selection_rate": 0.4317,
+        "true_positive_rate": 0.6899,
+        "false_positive_rate": 0.4154,
+        "false_negative_rate": 0.3101,
+        "count": 8490.0
       },
-      "Male_Younger": {
-        "selection_rate": 0.3661,
-        "true_positive_rate": 0.674,
-        "false_positive_rate": 0.3269,
-        "false_negative_rate": 0.326,
-        "count": 10894.0
+      "Female_Younger_High": {
+        "selection_rate": 0.4278,
+        "true_positive_rate": 0.7354,
+        "false_positive_rate": 0.4029,
+        "false_negative_rate": 0.2646,
+        "count": 3885.0
+      },
+      "Female_Younger_Low": {
+        "selection_rate": 0.4292,
+        "true_positive_rate": 0.6854,
+        "false_positive_rate": 0.401,
+        "false_negative_rate": 0.3146,
+        "count": 6274.0
+      },
+      "Female_Younger_Medium": {
+        "selection_rate": 0.4198,
+        "true_positive_rate": 0.6767,
+        "false_positive_rate": 0.3931,
+        "false_negative_rate": 0.3233,
+        "count": 5982.0
+      },
+      "Male_Older_High": {
+        "selection_rate": 0.4302,
+        "true_positive_rate": 0.6906,
+        "false_positive_rate": 0.4082,
+        "false_negative_rate": 0.3094,
+        "count": 3935.0
+      },
+      "Male_Older_Low": {
+        "selection_rate": 0.4526,
+        "true_positive_rate": 0.6969,
+        "false_positive_rate": 0.4247,
+        "false_negative_rate": 0.3031,
+        "count": 2477.0
+      },
+      "Male_Older_Medium": {
+        "selection_rate": 0.4235,
+        "true_positive_rate": 0.6923,
+        "false_positive_rate": 0.3959,
+        "false_negative_rate": 0.3077,
+        "count": 3634.0
+      },
+      "Male_Younger_High": {
+        "selection_rate": 0.4237,
+        "true_positive_rate": 0.6959,
+        "false_positive_rate": 0.3964,
+        "false_negative_rate": 0.3041,
+        "count": 4513.0
+      },
+      "Male_Younger_Low": {
+        "selection_rate": 0.4337,
+        "true_positive_rate": 0.6851,
+        "false_positive_rate": 0.3928,
+        "false_negative_rate": 0.3149,
+        "count": 2066.0
+      },
+      "Male_Younger_Medium": {
+        "selection_rate": 0.4387,
+        "true_positive_rate": 0.734,
+        "false_positive_rate": 0.3974,
+        "false_negative_rate": 0.266,
+        "count": 4315.0
       }
     }
   },
   "improvement": {
     "auc_change": 0.0,
-    "accuracy_change": -0.0088,
-    "selection_rate_gap_change": -0.1996,
-    "tpr_gap_change": -0.1996,
-    "fpr_gap_change": -0.1996
+    "accuracy_change": -0.0696,
+    "selection_rate_gap_change": -0.4262,
+    "tpr_gap_change": -0.4262,
+    "fpr_gap_change": -0.4262
   },
   "api_usage": {
     "biased_endpoint": "POST /predict/biased  -- original XGBoost",

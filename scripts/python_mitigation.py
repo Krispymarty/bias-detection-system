@@ -82,7 +82,7 @@ CHART_PATH      = os.path.join(BASE_DIR, "reports", "fairness_comparison.png")  
 
 # The sensitive feature we're mitigating on.
 # ThresholdOptimizer will equalize predictions across its values.
-SENSITIVE_FEATURE = "CODE_GENDER_M_AND_AGE"
+SENSITIVE_FEATURE = "GENDER_AGE_INCOME"
 
 # Train/test split -- same seed as model training for consistency
 TEST_SIZE   = 0.2
@@ -154,7 +154,7 @@ def load_resources():
     print(f"  X shape          : {X.shape}")
     print(f"  Default rate     : {y.mean():.1%}")
 
-    return model, training_columns, income_bins, X, y
+    return model, training_columns, income_bins, X, y, df
 
 
 # -----------------------------------------------------------------------------
@@ -164,7 +164,7 @@ def load_resources():
 # This mirrors exactly how the original model was validated.
 # -----------------------------------------------------------------------------
 
-def split_data(X, y):
+def split_data(X, y, df):
     print(f"\n{'='*60}")
     print("SECTION 3 -- Train/test split")
     print(f"{'='*60}")
@@ -182,11 +182,13 @@ def split_data(X, y):
     # Sensitive feature vectors -- Intersectional groups
     gender_train_str = X_train["CODE_GENDER_M"].astype(int).map({0: "Female", 1: "Male"})
     age_train_str = np.where(X_train["AGE"] > 40, "Older", "Younger")
-    sensitive_train = gender_train_str + "_" + age_train_str
+    income_train_str = df.loc[X_train.index, "INCOME_GROUP"].astype(str)
+    sensitive_train = gender_train_str + "_" + age_train_str + "_" + income_train_str
 
     gender_test_str = X_test["CODE_GENDER_M"].astype(int).map({0: "Female", 1: "Male"})
     age_test_str = np.where(X_test["AGE"] > 40, "Older", "Younger")
-    sensitive_test = gender_test_str + "_" + age_test_str
+    income_test_str = df.loc[X_test.index, "INCOME_GROUP"].astype(str)
+    sensitive_test = gender_test_str + "_" + age_test_str + "_" + income_test_str
 
     print(f"\n  Sensitive feature  : {SENSITIVE_FEATURE}")
     print(f"  Train intersection split : {sensitive_train.value_counts().to_dict()}")
@@ -709,8 +711,8 @@ def main():
     print("  ThresholdOptimizer -- EqualizedOdds on gender")
     print("="*60)
 
-    model, training_columns, income_bins, X, y = load_resources()
-    X_train, X_test, y_train, y_test, sensitive_train, sensitive_test = split_data(X, y)
+    model, training_columns, income_bins, X, y, df = load_resources()
+    X_train, X_test, y_train, y_test, sensitive_train, sensitive_test = split_data(X, y, df)
     baseline = compute_baseline_metrics(model, X_test, y_test, sensitive_test)
     optimizer = fit_threshold_optimizer(model, X_train, y_train, sensitive_train)
     fair = compute_fair_metrics(optimizer, X_test, y_test, sensitive_test)

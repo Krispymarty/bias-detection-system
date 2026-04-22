@@ -217,7 +217,8 @@ async def run_pipeline(request: AuditRequest):
             
             gender_val = "Male" if raw_features["CODE_GENDER_M"] == 1 else "Female"
             age_val = "Older" if raw_features.get("AGE", 0) > 40 else "Younger"
-            sensitive = pd.Series([f"{gender_val}_{age_val}"])
+            income_val = raw_features.get("INCOME_GROUP", "Low")
+            sensitive = pd.Series([f"{gender_val}_{age_val}_{income_val}"])
             
             pred_val = int(fair_model.predict(X_processed, sensitive_features=sensitive)[0])
             try:
@@ -255,12 +256,16 @@ async def run_pipeline(request: AuditRequest):
     else:
         recommendation = "Application approved. No further action needed."
         
-    latency_ms = (time.time() - start_time) * 1000
+    latency_ms = round((time.time() - start_time) * 1000, 2)
     if latency_ms > 500:
         logger.warning(f"Audit request took {latency_ms:.2f}ms (EXCEEDS 500ms SLA!)")
     else:
         logger.info(f"Audit request completed in {latency_ms:.2f}ms")
         
+    # --- STEP 6: SHAP EXPLANATION ---
+    explanation_dict = {}
+    sensitive_feature_alert = False
+    flagged_features = []
     try:
         X_processed, _, _ = preprocess_data(
             X_raw, 
@@ -272,37 +277,183 @@ async def run_pipeline(request: AuditRequest):
             item["feature"]: item["shap_value"] 
             for item in raw_explanation["top_features"]
         }
+        # Protected Feature Impact Flag — check contribution magnitude, not just name
+        PROTECTED_ATTRIBUTES = ["CODE_GENDER_M", "AGE"]
+        for item in raw_explanation["top_features"]:
+            if item["feature"] in PROTECTED_ATTRIBUTES and abs(item["shap_value"]) > 0.1:
+                sensitive_feature_alert = True
+                flagged_features.append(item["feature"])
     except Exception as e:
         logger.error(f"Error generating SHAP explanation: {e}")
-        explanation_dict = {}
 
-    # Look up bias metrics from the pre-loaded report
+    # --- STEP 7: FAIRNESS METRICS & BIAS SOURCE ---
     model_type_key = "fair_model" if request.apply_mitigation and f"fair_{domain}" in MODELS else "baseline_model"
     
     bias_metrics = {}
     fairness_score = 0.0
-    if FAIRNESS_REPORT and model_type_key in FAIRNESS_REPORT:
-        metrics = FAIRNESS_REPORT[model_type_key]
-        bias_metrics = {
-            "selection_rate_gap": metrics.get("selection_rate_gap", 0),
-            "tpr_gap": metrics.get("tpr_gap", 0),
-            "fpr_gap": metrics.get("fpr_gap", 0),
-            "fnr_gap": metrics.get("fnr_gap", 0)
-        }
-        fairness_score = round(1.0 - metrics.get("selection_rate_gap", 0), 4)
+    bias_source = "Unknown"
+    fairness_badge = "🔴 Risky"
+    
+    if FAIRNESS_REPORT:
+        baseline_gap = FAIRNESS_REPORT.get("baseline_model", {}).get("selection_rate_gap", 1.0)
+        fair_gap = FAIRNESS_REPORT.get("fair_model", {}).get("selection_rate_gap", 1.0)
+        
+        # Use the correct model's metrics
+        if model_type_key in FAIRNESS_REPORT:
+            metrics = FAIRNESS_REPORT[model_type_key]
+            bias_metrics = {
+                "selection_rate_gap": metrics.get("selection_rate_gap", 0),
+                "tpr_gap": metrics.get("tpr_gap", 0),
+                "fpr_gap": metrics.get("fpr_gap", 0),
+                "fnr_gap": metrics.get("fnr_gap", 0)
+            }
+            fairness_score = round((1.0 - metrics.get("selection_rate_gap", 0)) * 100, 1)
+        
+        # Bias Source Classification
+        if abs(baseline_gap - fair_gap) < 0.02:
+            bias_source = "Historical Data Bias"
+        else:
+            bias_source = "Model Bias (Mitigated)" if request.apply_mitigation else "Model Bias (Detected)"
+        
+        # Fairness Badge
+        if fairness_score > 85:
+            fairness_badge = "🟢 Fair"
+        elif fairness_score > 70:
+            fairness_badge = "🟡 Moderate"
+        else:
+            fairness_badge = "🔴 Risky"
+
+    # --- STEP 8: CONFIDENCE WARNING ---
+    confidence_warning = None
+    if 0.45 <= probability <= 0.55:
+        confidence_warning = "⚠ Low confidence decision — human review recommended"
 
     return {
         "prediction": prediction_str,
         "probability": probability,
-        "confidence": confidence,
-        "threshold": round(float(MODEL_BUNDLE.get("optimal_threshold", 0.5)), 4),
-        "fairness_score": fairness_score,
-        "bias_metrics": bias_metrics,
-        "explanation": explanation_dict,  # <-- Member B: SHAP dictionary drops here
         "recommendation": recommendation,
-        "model_version": "fair_model" if request.apply_mitigation and f"fair_{domain}" in MODELS else MODEL_BUNDLE.get("version", "v1"),
-        "mitigation_applied": request.apply_mitigation and f"fair_{domain}" in MODELS
+        
+        "fairness": {
+            "score": fairness_score,
+            "badge": fairness_badge,
+            "bias_source": bias_source,
+            "bias_metrics": bias_metrics,
+            "sensitive_feature_alert": sensitive_feature_alert,
+            "flagged_features": flagged_features
+        },
+        
+        "explanation": explanation_dict,
+        
+        "governance": {
+            "confidence": confidence,
+            "confidence_warning": confidence_warning,
+            "threshold": round(float(MODEL_BUNDLE.get("optimal_threshold", 0.5)), 4),
+            "model_version": "fair_model" if request.apply_mitigation and f"fair_{domain}" in MODELS else MODEL_BUNDLE.get("version", "v1"),
+            "mitigation_applied": request.apply_mitigation and f"fair_{domain}" in MODELS
+        },
+        
+        "system": {
+            "latency_ms": latency_ms,
+            "domain": domain
+        }
     }
+
+
+@app.post("/v1/audit/compare")
+async def compare_audit(request: AuditRequest):
+    """
+    Runs the same applicant through BOTH the baseline (biased) and fair (mitigated)
+    models, returning a side-by-side comparison. This is the 'wow moment' endpoint.
+    """
+    start_time = time.time()
+    domain = request.domain.lower()
+    
+    if domain not in MODELS:
+        raise HTTPException(status_code=400, detail=f"Model for domain '{domain}' is not available.")
+    if f"fair_{domain}" not in MODELS:
+        raise HTTPException(status_code=400, detail=f"Fair model for domain '{domain}' is not available. Run mitigation first.")
+    
+    MODEL_BUNDLE = MODELS[domain]
+    FAIR_BUNDLE = MODELS[f"fair_{domain}"]
+    
+    # Extract features
+    raw_features = request.features.model_dump()
+    gender = raw_features.pop("CODE_GENDER", "F")
+    raw_features["CODE_GENDER_M"] = 1 if gender == "M" else 0
+    
+    try:
+        X_raw = pd.DataFrame([raw_features])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to convert features: {e}")
+    
+    # --- BASELINE PREDICTION ---
+    try:
+        base_pred, base_prob = predict(MODEL_BUNDLE, X_raw)
+        base_prediction_str = "Rejected" if base_pred == 1 else "Approved"
+        base_prob = round(float(base_prob), 4)
+    except Exception as e:
+        logger.error(f"Baseline inference failed: {e}")
+        raise HTTPException(status_code=500, detail="Baseline inference failed.")
+    
+    # --- FAIR PREDICTION ---
+    try:
+        fair_model = FAIR_BUNDLE["fair_model"]
+        X_processed, _, _ = preprocess_data(
+            X_raw,
+            training_columns=FAIR_BUNDLE.get("training_columns"),
+            income_bins=FAIR_BUNDLE.get("income_bins")
+        )
+        
+        gender_val = "Male" if raw_features["CODE_GENDER_M"] == 1 else "Female"
+        age_val = "Older" if raw_features.get("AGE", 0) > 40 else "Younger"
+        income_val = raw_features.get("INCOME_GROUP", "Low")
+        sensitive = pd.Series([f"{gender_val}_{age_val}_{income_val}"])
+        
+        fair_pred = int(fair_model.predict(X_processed, sensitive_features=sensitive)[0])
+        try:
+            fair_prob = float(fair_model.predict_proba(X_processed, sensitive_features=sensitive)[0][1])
+        except Exception:
+            fair_prob = base_prob
+        fair_prediction_str = "Rejected" if fair_pred == 1 else "Approved"
+        fair_prob = round(fair_prob, 4)
+    except Exception as e:
+        logger.error(f"Fair inference failed: {e}")
+        raise HTTPException(status_code=500, detail="Fair inference failed.")
+    
+    # --- FAIRNESS SCORES ---
+    base_fairness = 0.0
+    fair_fairness = 0.0
+    if FAIRNESS_REPORT:
+        base_gap = FAIRNESS_REPORT.get("baseline_model", {}).get("selection_rate_gap", 1.0)
+        fair_gap = FAIRNESS_REPORT.get("fair_model", {}).get("selection_rate_gap", 1.0)
+        base_fairness = round((1.0 - base_gap) * 100, 1)
+        fair_fairness = round((1.0 - fair_gap) * 100, 1)
+    
+    latency_ms = round((time.time() - start_time) * 1000, 2)
+    
+    return {
+        "baseline": {
+            "prediction": base_prediction_str,
+            "probability": base_prob,
+            "fairness_score": base_fairness,
+            "model_version": MODEL_BUNDLE.get("version", "v1")
+        },
+        "mitigated": {
+            "prediction": fair_prediction_str,
+            "probability": fair_prob,
+            "fairness_score": fair_fairness,
+            "model_version": "fair_model"
+        },
+        "improvement": {
+            "fairness_gain": round(fair_fairness - base_fairness, 1),
+            "decision_changed": base_prediction_str != fair_prediction_str
+        },
+        "system": {
+            "latency_ms": latency_ms,
+            "domain": domain
+        }
+    }
+
 
 @app.get("/v1/fairness_report")
 async def get_fairness_report():
@@ -311,7 +462,6 @@ async def get_fairness_report():
     if not os.path.exists(report_path):
         raise HTTPException(status_code=404, detail="Fairness report not found. Run python_mitigation.py first.")
     
-    import json
     with open(report_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -319,3 +469,4 @@ async def get_fairness_report():
 async def health_check():
     """Health check endpoint for Docker/Cloud Run deployment."""
     return {"status": "healthy", "models_loaded": len(MODELS) > 0, "available_domains": list(MODELS.keys())}
+

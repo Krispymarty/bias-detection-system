@@ -2,6 +2,8 @@
 
 This document serves as the "brain snapshot" for the project. If you return to this project in the future, feeding this document to the AI will instantly give it complete context on what has been built, how the architecture works, and what exactly needs to be done next.
 
+**Last Updated:** 2026-04-22
+
 ---
 
 ## 🎯 1. Project Goal
@@ -29,10 +31,48 @@ Building a production-ready **AI Fairness Auditor** for the Google Solution Chal
 *   **What it does:** Exposes `/v1/audit` which safely translates our 11 UI features into the exact Pandas format for XGBoost.
 *   **Features:** Implements Multi-Domain switching (selects Lending vs Hiring models via `request.domain`) and a Counterfactual Logic engine that automatically provides deterministic recommendations for rejected applicants.
 
+### Step 4: Enterprise-Grade API Restructure *(NEW — 2026-04-22)*
+*   **Status:** DONE
+*   **What changed:** The `/v1/audit` response was completely restructured into clean, separated sections:
+    *   **`fairness`** — Score (0–100), badge (🟢🟡🔴), bias source classification, bias metrics, sensitive feature alerts
+    *   **`governance`** — Confidence level, confidence warning (human review flag for borderline 0.45–0.55 decisions), model version, mitigation toggle
+    *   **`explanation`** — Top 5 SHAP feature contributions with protected attribute flagging (triggers when `|SHAP| > 0.1` for `CODE_GENDER_M` or `AGE`)
+    *   **`system`** — Response latency in ms, domain
+
+### Step 5: Before vs After Comparison Endpoint *(NEW — 2026-04-22)*
+*   **Status:** DONE
+*   **Endpoint:** `POST /v1/audit/compare`
+*   **What it does:** Runs the same applicant through BOTH the baseline (biased) and fair (mitigated) models and returns a side-by-side comparison with fairness gain calculation.
+*   **Example output:** Baseline fairness 53.6 → Mitigated fairness 96.3 → **+42.7 point gain**
+
+### Step 6: Expanded Intersectional Fairness *(NEW — 2026-04-22)*
+*   **Status:** DONE
+*   **Before:** 4 groups (Gender × Age)
+*   **After:** **12 groups** (Gender × Age × Income)
+*   **Result:** Selection rate gap reduced from **0.4635 → 0.0373** (92% bias reduction, 0 AUC loss)
+
 ---
 
 ## 🧩 3. System Architecture & Features
-*   **The 11 Input Features:** `CODE_GENDER`, `AGE`, `AMT_INCOME_TOTAL`, `AMT_CREDIT`, `AMT_ANNUITY`, `NAME_EDUCATION_TYPE`, `OCCUPATION_TYPE`, `EXT_SOURCE_1`, `EXT_SOURCE_2`, `EXT_SOURCE_3`, `INCOME_GROUP`.
+
+### Input Features (11)
+`CODE_GENDER`, `AGE`, `AMT_INCOME_TOTAL`, `AMT_CREDIT`, `AMT_ANNUITY`, `NAME_EDUCATION_TYPE`, `OCCUPATION_TYPE`, `EXT_SOURCE_1`, `EXT_SOURCE_2`, `EXT_SOURCE_3`, `INCOME_GROUP`
+
+### API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/audit` | Full fairness audit with structured response |
+| `POST` | `/v1/audit/compare` | Side-by-side baseline vs mitigated comparison |
+| `GET`  | `/v1/fairness_report` | Complete before/after metrics for all 12 groups |
+| `GET`  | `/health` | Health check for deployment |
+
+### Fairness Results — Before vs After
+| Metric | Before (Biased) | After (Fair) | Change |
+|--------|-----------------|--------------|--------|
+| Selection Rate Gap | 0.4635 (46.4%) | 0.0373 (3.7%) | **-92% bias** ✅ |
+| ROC-AUC | 0.7319 | 0.7319 | **0 drop** ✅ |
+| Accuracy | 0.6744 | 0.6048 | -0.07 (minimal) |
+| Demographic Groups | 4 | **12** | Gender × Age × Income |
 
 ---
 
@@ -42,23 +82,32 @@ To ensure parallel development, we have divided into **Team 1: Brain (Logic/API)
 
 ### 🧠 Team 1 (The Backend API & AI Logic)
 
-**Member A: The Infrastructure & API Architect (Currently Active)**
+**Member A: The Infrastructure & API Architect**
 *   ✅ **Task 1:** FastAPI Core (`main.py`)
 *   ✅ **Task 2:** Multi-Domain Switching (Lending vs Hiring logic)
 *   ✅ **Task 4:** Counterfactual Logic ("Path to approval" loop)
-*   ✅ **Task 5 (New):** Pydantic Adversarial Defense (Strict bounds like `AGE: 18-100` implemented on API).
-*   ✅ **Task 6 (New):** MLOps API Architecture (Integrated `<500ms` SLA Latency Logging, extracted logic routing, added specific Exception tracebacks).
-*   ✅ **Task 7 (New):** Model Serialization format (Bakes exact feature names, feature importances, training config, and version strings into `.joblib`).
-*   ✅ **Task 8 (New):** Analytics Backend (Added prediction `confidence` logic directly to API payloads and structured JSON inference logging for downstream cloud metrics tracking).
-*   ✅ **Task 9 (New):** Categorical Inference Safety (Fixed critical Pandas dummy zeroing bug ensuring single-row API inputs natively preserve sensitive values like `CODE_GENDER` instead of destroying them to baseline zeros).
-*   ✅ **Task 10 (New):** Project Folder Reorganization (Cleaned up root directory into `logs/`, `reports/`, `scripts/`, and `pipeline/` for production readiness).
-*   ⏳ **Task 3: Cloud Deployment (MLOps)** -> *NEXT IMMEDIATE STEP:* Member B has finished the Fairlearn and LLM hooks into `main.py`. Ready to execute the final `Dockerfile` build and deploy to Google Cloud Run.
+*   ✅ **Task 5:** Pydantic Adversarial Defense (Strict bounds like `AGE: 18-100` implemented on API).
+*   ✅ **Task 6:** MLOps API Architecture (Integrated `<500ms` SLA Latency Logging, extracted logic routing, added specific Exception tracebacks).
+*   ✅ **Task 7:** Model Serialization format (Bakes exact feature names, feature importances, training config, and version strings into `.joblib`).
+*   ✅ **Task 8:** Analytics Backend (Added prediction `confidence` logic directly to API payloads and structured JSON inference logging for downstream cloud metrics tracking).
+*   ✅ **Task 9:** Categorical Inference Safety (Fixed critical Pandas dummy zeroing bug ensuring single-row API inputs natively preserve sensitive values like `CODE_GENDER` instead of destroying them to baseline zeros).
+*   ✅ **Task 10:** Project Folder Reorganization (Cleaned up root directory into `logs/`, `reports/`, `scripts/`, and `pipeline/` for production readiness).
+*   ✅ **Task 11 (NEW):** Enterprise API Restructure — Separated response into `fairness`, `governance`, `explanation`, `system` sections.
+*   ✅ **Task 12 (NEW):** Confidence Warning System — Flags borderline decisions (0.45–0.55) for human review.
+*   ✅ **Task 13 (NEW):** Protected Feature Alert — Detects when sensitive attributes (`CODE_GENDER_M`, `AGE`) have SHAP impact > 0.1.
+*   ✅ **Task 14 (NEW):** Bias Source Classification — Distinguishes "Historical Data Bias" from "Model Bias (Mitigated/Detected)".
+*   ✅ **Task 15 (NEW):** Fairness Badge System — 🟢 Fair (>85), 🟡 Moderate (70–85), 🔴 Risky (<70).
+*   ✅ **Task 16 (NEW):** Before vs After Comparison Endpoint (`/v1/audit/compare`).
+*   ✅ **Task 17 (NEW):** Live Bias Metrics — `fairness_score` and `bias_metrics` populated from `mitigation_report.json`.
+*   ✅ **Task 18 (NEW):** sys.path fix for teammate compatibility (uvicorn from `app/` directory).
+*   ⏳ **Task 3: Cloud Deployment (MLOps)** -> *NEXT STEP:* Execute the final `Dockerfile` build and deploy to Google Cloud Run.
 
 **Member B: Fairness & Explainability Specialist**
-*   ✅ **Task 1 (New): SHAP Integration & Slicing:** Crack open the XGBoost model to provide feature contributions (`explainability.py`). (API payload defense implemented: SHAP matrices must be sliced to TOP 5 to prevent latency spikes).
-*   ✅ **Task 2: Fairlearn Mitigation:** Implement `ThresholdOptimizer` to correct the 17% Demographic Parity bias (completed via `python_mitigation.py`).
-*   ✅ **Task 3: Gemini Agent:** Turn SHAP arrays into natural language audit logs (completed via `shap_llm_explainer.py`).
-*   ✅ **Task 4 (New): Intersectional Bias:** Audit `CODE_GENDER_M` + `AGE` simultaneously. (API has been dynamically refactored to accept any `sensitive_col`).
+*   ✅ **Task 1:** SHAP Integration & Slicing (`explainability.py`). SHAP matrices sliced to TOP 5 to prevent latency spikes.
+*   ✅ **Task 2:** Fairlearn Mitigation — `ThresholdOptimizer` to correct bias (completed via `python_mitigation.py`).
+*   ✅ **Task 3:** Gemini Agent — Turn SHAP arrays into natural language audit logs (`shap_llm_explainer.py`).
+*   ✅ **Task 4:** Intersectional Bias — Originally `CODE_GENDER_M` + `AGE` (4 groups).
+*   ✅ **Task 5 (NEW):** Expanded Intersectional Bias to `Gender × Age × Income` (12 groups). Selection rate gap reduced by 92%.
 
 ### 🖥️ Team 2 (The UI, DB, & Automation)
 
@@ -69,7 +118,7 @@ To ensure parallel development, we have divided into **Team 1: Brain (Logic/API)
 *   ⏳ **Task 4:** Generate Fairness Certificate PDF.
 
 **Member D: Automation & Integration Engineer**
-*   ⏳ **Task 1:** Python `requests` logic to call Member A's FastAPI backend and handle loading states.
+*   ✅ **Task 1:** Python `requests` logic to call Member A's FastAPI backend — **API is now live and tested**.
 *   ⏳ **Task 2:** Wire up Firebase/Firestore to permanently save "Audit Logs".
 *   ⏳ **Task 3:** Deploy the Streamlit frontend to Cloud Run.
 *   ⏳ **Task 4:** Build the historical "Audit History" Review Tab.

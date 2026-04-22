@@ -6,8 +6,15 @@ import joblib
 import logging
 import pandas as pd
 import time
+import sys
+import os
+
+# Ensure the parent directory is in the Python path so pipeline can be imported
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from pipeline.model import predict, preprocess_data
 from pipeline.explainability import get_shap_explanation
+
 
 import json
 import ast
@@ -70,6 +77,7 @@ def health():
 
 # Global variables for model storage
 MODELS: Dict[str, Any] = {}
+FAIRNESS_REPORT: Dict[str, Any] = {}
 
 from pydantic import BaseModel, Field
 
@@ -121,6 +129,17 @@ async def load_model_bundle():
             
     except Exception as e:
         logger.error(f"Failed to load model bundle from {lending_path}: {e}")
+
+    # Load fairness report
+    global FAIRNESS_REPORT
+    report_path = os.path.join(os.path.dirname(__file__), "..", "pipeline", "mitigation_report.json")
+    if os.path.exists(report_path):
+        try:
+            with open(report_path, "r", encoding="utf-8") as f:
+                FAIRNESS_REPORT = json.load(f)
+            logger.info("Fairness report loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load fairness report: {e}")
 
 def generate_counterfactual_recommendation(model_bundle: Dict[str, Any], X_raw: pd.DataFrame, pred_val: int) -> str:
     """Generates simple perturbation-based recommendations to flip a rejection."""
@@ -257,13 +276,28 @@ async def run_pipeline(request: AuditRequest):
         logger.error(f"Error generating SHAP explanation: {e}")
         explanation_dict = {}
 
+    # Look up bias metrics from the pre-loaded report
+    model_type_key = "fair_model" if request.apply_mitigation and f"fair_{domain}" in MODELS else "baseline_model"
+    
+    bias_metrics = {}
+    fairness_score = 0.0
+    if FAIRNESS_REPORT and model_type_key in FAIRNESS_REPORT:
+        metrics = FAIRNESS_REPORT[model_type_key]
+        bias_metrics = {
+            "selection_rate_gap": metrics.get("selection_rate_gap", 0),
+            "tpr_gap": metrics.get("tpr_gap", 0),
+            "fpr_gap": metrics.get("fpr_gap", 0),
+            "fnr_gap": metrics.get("fnr_gap", 0)
+        }
+        fairness_score = round(1.0 - metrics.get("selection_rate_gap", 0), 4)
+
     return {
         "prediction": prediction_str,
         "probability": probability,
         "confidence": confidence,
         "threshold": round(float(MODEL_BUNDLE.get("optimal_threshold", 0.5)), 4),
-        "fairness_score": 0,
-        "bias_metrics": {},
+        "fairness_score": fairness_score,
+        "bias_metrics": bias_metrics,
         "explanation": explanation_dict,  # <-- Member B: SHAP dictionary drops here
         "recommendation": recommendation,
         "model_version": "fair_model" if request.apply_mitigation and f"fair_{domain}" in MODELS else MODEL_BUNDLE.get("version", "v1"),

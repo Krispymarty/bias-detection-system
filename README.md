@@ -35,6 +35,7 @@ Building this project was a deep dive into the intersection of Machine Learning,
 2. **Multi-Domain API:** A robust API (`/v1/audit`) that dynamically switches logic between Lending and Hiring domains.
 3. **Pydantic Adversarial Defense:** Strict data validation limits to prevent edge cases from entering the inference pipeline.
 4. **SHAP Slicing:** Extracts and slices SHAP matrices down to the top 5 contributing features to maintain low latency (<500ms SLA).
+5. **Live Bias Metrics:** API responses dynamically output a `fairness_score` and detailed `bias_metrics` (e.g., Demographic Parity gap) based on whether baseline or Fairlearn mitigation is applied.
 
 ## 🚀 How to Run Locally
 
@@ -50,10 +51,11 @@ Building this project was a deep dive into the intersection of Machine Learning,
    ```
 
 3. **Run the FastAPI server:**
+   From the root directory:
    ```bash
-   cd app
-   uvicorn main:app --reload
+   uvicorn app.main:app --reload
    ```
+   *(Alternatively, you can `cd app` and run `uvicorn main:app --reload`)*
 
 4. **Test the API:**
    Navigate to `http://127.0.0.1:8000/docs` to view the interactive Swagger documentation and test the `/v1/audit` endpoint.

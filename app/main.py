@@ -138,6 +138,10 @@ async def load_model_bundle():
         except Exception as e:
             logger.error(f"Failed to load fairness report: {e}")
 
+    # Phase 4 — surface DEBUG_MODE state in Render/Docker logs at every startup
+    debug_mode_val = os.getenv("DEBUG_MODE", "false")
+    logger.info(f"DEBUG_MODE = {debug_mode_val}  (debug fields {'visible' if debug_mode_val.lower() == 'true' else 'hidden'} in responses)")
+
 
 # ---------------------------------------------------------------------------
 # PHASE 2 + 3 — STRICT + FORGIVING REQUEST SCHEMA
@@ -219,8 +223,12 @@ _INCOME_GROUP_MAP = {"low": "Low", "medium": "Medium", "high": "High"}
 def _normalize_income_group(val: Any) -> str:
     """Normalise free-text income group to canonical casing. Defaults to 'Medium'."""
     try:
-        return _INCOME_GROUP_MAP.get(str(val).strip().lower(), "Medium")
+        v = str(val).strip().lower()
+        if v not in _INCOME_GROUP_MAP:
+            logger.warning(f"Unknown INCOME_GROUP value '{val}' — defaulting to 'Medium'")
+        return _INCOME_GROUP_MAP.get(v, "Medium")
     except Exception:
+        logger.warning(f"Error normalizing INCOME_GROUP value '{val}' — defaulting to 'Medium'")
         return "Medium"
 
 

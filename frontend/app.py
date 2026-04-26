@@ -47,8 +47,11 @@ if "current_page" not in st.session_state:
 @st.cache_resource
 def load_css():
     """Load custom CSS and external resources once."""
-    with open("assets/style.css") as f:
-        return f.read()
+    from pathlib import Path
+    css_path = Path(__file__).parent / "assets" / "style.css"
+    if not css_path.exists():
+        return ""  # fail gracefully without crashing
+    return css_path.read_text()
 
 
 # Google Fonts

@@ -40,6 +40,9 @@ logs/
 # Streamlit
 # ======================
 .streamlit/
+# Allow the frontend theme/server config (needed for Render deployment)
+!frontend/.streamlit/
+!frontend/.streamlit/config.toml
 
 # ======================
 # Jupyter Notebook
@@ -59,6 +62,8 @@ Thumbs.db
 *.key
 *.json
 !pipeline/*.json
+# Allow the frontend user store (initial accounts — no secrets inside)
+!frontend/users.json
 
 # ======================
 # Build / Cache

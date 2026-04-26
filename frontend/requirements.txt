@@ -1,11 +1,28 @@
+# ─── FairSight AI — Frontend Dependencies ───────────────────────────────────
+# These are ALL packages actually imported by frontend code.
+# DO NOT add backend/ML packages (scikit-learn, xgboost, shap, fairlearn, fastapi).
+
+# Core UI
 streamlit>=1.31.0
 streamlit-option-menu>=0.3.6
+
+# Data & Visualisation
 plotly>=5.18.0
 pandas>=2.0.0
 numpy>=1.24.0
+matplotlib>=3.7.0
+
+# API calls
+requests>=2.31.0
+
+# Auth (authlib.integrations used in utils/auth.py)
 authlib>=1.7.0
+
+# PDF report export (used in utils/whatif/pdf_report.py)
 reportlab>=4.0.0
-python-dotenv
-requests
-matplotlib
-google-generativeai
+
+# Env vars
+python-dotenv>=1.0.0
+
+# AI Agent page (google-generativeai used in pages_app/ai_agent.py)
+google-generativeai>=0.5.0

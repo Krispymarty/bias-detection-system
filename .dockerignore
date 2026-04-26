@@ -25,6 +25,8 @@ reports/
 scripts/
 api_audit.jsonl
 *.png
+# But keep frontend assets (background image, icons etc.)
+!frontend/assets/
 
 # Exclude development tests
 test_*.py

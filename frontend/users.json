@@ -1,0 +1,44 @@
+{
+    "shivatyagi16feb@gmail.com": {
+        "name": "SHIVA TYAGI",
+        "password": "google_oauth_mock"
+    },
+    "shivatyagi6feb@gmail.com": {
+        "name": "SHIVA TYAGI",
+        "password": "1234"
+    },
+    "upendratyagi40@gmail.com": {
+        "name": "upendra tyagi",
+        "password": "google_oauth_mock"
+    },
+    "shivaphonea318@gmail.com": {
+        "name": "shiv",
+        "password": "google_oauth_mock"
+    },
+    "shivaphonea35@gmail.com": {
+        "name": "Shiva",
+        "password": "google_oauth_mock"
+    },
+    "shivatyagi1feb@gmail.com": {
+        "name": "SHIVA TYAGI",
+        "password": "12334"
+    },
+    "shivatyagifeb@gmail.com": {
+        "name": "SHIVA TYAGI",
+        "password": "1234"
+    },
+    "shivatyagi16@gmail.com": {
+        "name": "shivam tyagi",
+        "password": "12345",
+        "organization": "upes",
+        "role": "ML Engineer",
+        "bio": ""
+    },
+    "20yashmitsingh@gmail.com": {
+        "name": "Yashmit Singh",
+        "password": "12345678",
+        "organization": "Debiasiq",
+        "role": "ML Engineer",
+        "bio": ""
+    }
+}

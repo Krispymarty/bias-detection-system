@@ -1,23 +1,28 @@
-# Use official Python lightweight image
+# ─── FairSight AI — Frontend Docker Image ────────────────────────────────────
+# Copies ONLY the frontend/ folder — no backend code, no ML deps.
+# Build:  docker build -f Dockerfile.frontend -t fairsight-frontend .
+# Run:    docker run -p 8501:8501 fairsight-frontend
+# ─────────────────────────────────────────────────────────────────────────────
+
 FROM python:3.10-slim
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=True
+# Keeps Python from writing .pyc files and ensures logs appear immediately
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Create and set the working directory
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
-COPY requirements-frontend.txt .
+# Copy only the frontend directory into the container
+COPY frontend/ .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-frontend.txt
+# Install frontend-only dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
-COPY . .
-
-# Expose Streamlit default port
+# Streamlit port
 EXPOSE 8501
 
-# Command to run the Streamlit application
-CMD ["streamlit", "run", "frontend/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Start the app — WORKDIR is /app which IS the frontend folder, so app.py is at root
+CMD ["streamlit", "run", "app.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true"]

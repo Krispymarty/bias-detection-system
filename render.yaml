@@ -1,0 +1,23 @@
+# ─── render.yaml — FairSight AI Frontend ─────────────────────────────────────
+# Render Blueprint: https://render.com/docs/blueprint-spec
+#
+# This file configures the FRONTEND only.
+# The backend is already deployed separately at:
+#   https://bias-detection-system.onrender.com
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  - type: web
+    name: debiasiq
+    runtime: docker
+    dockerfilePath: ./Dockerfile.frontend
+    dockerContext: .
+    plan: free          # change to "starter" etc. if you need more resources
+    healthCheckPath: /_stcore/health   # Streamlit built-in health endpoint
+
+    envVars:
+      - key: API_BASE_URL
+        value: https://bias-detection-system.onrender.com   # already-deployed backend
+
+      - key: GEMINI_API_KEY
+        sync: false   # set this secret manually in the Render dashboard

@@ -7,3 +7,5 @@ authlib>=1.7.0
 reportlab>=4.0.0
 python-dotenv
 requests
+matplotlib
+google-generativeai

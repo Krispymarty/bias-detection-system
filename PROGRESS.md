@@ -2,7 +2,7 @@
 
 This document serves as the "brain snapshot" for the project. If you return to this project in the future, feeding this document to the AI will instantly give it complete context on what has been built, how the architecture works, and what exactly needs to be done next.
 
-**Last Updated:** 2026-04-22
+**Last Updated:** 2026-04-26
 
 ---
 
@@ -50,6 +50,11 @@ Building a production-ready **AI Fairness Auditor** for the Google Solution Chal
 *   **Before:** 4 groups (Gender × Age)
 *   **After:** **12 groups** (Gender × Age × Income)
 *   **Result:** Selection rate gap reduced from **0.4635 → 0.0373** (92% bias reduction, 0 AUC loss)
+
+### Step 7: Frontend Integration *(NEW — 2026-04-26)*
+*   **Status:** DONE
+*   **Tech Stack:** `Streamlit`, `Plotly`, `ReportLab`
+*   **What it does:** A comprehensive UI (`frontend/`) that integrates with the FastAPI backend. It features interactive "What-If" sliders, SHAP data visualizations, dynamic API URL routing, and a multi-page setup isolated from the main backend repository structure.
 
 ---
 
@@ -112,10 +117,10 @@ To ensure parallel development, we have divided into **Team 1: Brain (Logic/API)
 ### 🖥️ Team 2 (The UI, DB, & Automation)
 
 **Member C: UX & Frontend Developer**
-*   ⏳ **Task 1:** Build Streamlit Governance UI (Domain switches & Auditor workbench).
-*   ⏳ **Task 2:** Interactive 11-feature "What-If" Sliders invoking `main.py`.
-*   ⏳ **Task 3:** Data Visualizations for SHAP and risk scores.
-*   ⏳ **Task 4:** Generate Fairness Certificate PDF.
+*   ✅ **Task 1:** Build Streamlit Governance UI (Domain switches & Auditor workbench).
+*   ✅ **Task 2:** Interactive 11-feature "What-If" Sliders invoking `main.py`.
+*   ✅ **Task 3:** Data Visualizations for SHAP and risk scores.
+*   ✅ **Task 4:** Generate Fairness Certificate PDF.
 
 **Member D: Automation & Integration Engineer**
 *   ✅ **Task 1:** Python `requests` logic to call Member A's FastAPI backend — **API is now live and tested**.

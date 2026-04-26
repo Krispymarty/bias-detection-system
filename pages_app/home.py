@@ -4,6 +4,9 @@ Exactly matching the requested dashboard UI with floating animations.
 """
 import streamlit as st
 from utils.auth import navigate_to
+import json
+import os
+import matplotlib.pyplot as plt
 
 def render_html(html_str):
     """Helper to prevent Streamlit from rendering HTML chunks as Markdown code blocks.
@@ -272,101 +275,212 @@ def render():
         """
     )
 
+    # ── Smart Simulation Input Experience ──
+    st.markdown('<div class="panel-label" style="margin-top: 30px; margin-bottom: 20px; font-size:1.1rem; color:#00FFD1;">✨ Start Smart Simulation</div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('''
+        <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(0,255,209,0.2); border-radius:16px; padding:24px; margin-bottom:40px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        ''', unsafe_allow_html=True)
+        
+        col_in1, col_in2, col_in3 = st.columns(3)
+        with col_in1:
+            gender = st.selectbox("👤 Who are you?", ["Male", "Female"])
+            job = st.selectbox("💼 Work Type", ["Private Job", "Self-Employed", "Student", "Unemployed"])
+        with col_in2:
+            age = st.slider("🎂 Age Group", 18, 65, 25)
+            education = st.selectbox("🎓 Education", ["School", "Graduate", "Postgraduate"])
+        with col_in3:
+            income = st.selectbox("💰 Income Category", ["Low Income", "Middle Income", "High Income"])
+            credit = st.slider("🏦 Loan Requirement", 1000, 1000000, 50000)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        if st.button("⚡ Analyze My Fairness Score", use_container_width=True, type="primary"):
+            st.session_state["simulation_input"] = {
+                "gender": gender,
+                "age": age,
+                "income": income,
+                "job": job,
+                "education": education,
+                "credit": credit
+            }
+            # ADD FLAGS (DO NOT TOUCH OTHER STATE)
+            st.session_state["auto_run"] = True
+            st.session_state["from_home"] = True
+            try:
+                st.switch_page("pages_app/whatif_simulator.py")
+            except Exception as e:
+                # Fallback if switch_page fails depending on streamllit version
+                st.session_state["current_page"] = "whatif_simulator"
+                st.rerun()
+            
+        st.markdown('</div>', unsafe_allow_html=True)
+
     # Simulator Integration for Metrics
-    results = st.session_state.get('simulation_results', None)
+    def load_last_result():
+        if os.path.exists("last_result.json"):
+            try:
+                with open("last_result.json", "r") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return None
+
+    results = st.session_state.get('last_result') or load_last_result()
+
     if results:
-        fairness = f"{results['fairness']:.2f}"
-        bias = results['bias'] * 100
-        bias_str = f"{bias:.2f}%"
-        impact = f"{(results['fairness'] / 100):.3f}"
-        acc = f"{results['accuracy']:.2f}%"
+        fairness_score = results.get("fairness", {}).get("score", 0)
+        prob_score = results.get("probability", 0)
+        bias_score = results.get("bias", 0)
+        risk_level = results.get("risk", "Unknown")
+        acc_score = results.get("accuracy", 0)
+
+        fairness_str = f"{fairness_score:.2f}%"
+        bias_str = f"{bias_score:.4f}"
+        impact_str = f"{(fairness_score / 100):.3f}"
+        acc_str = f"{acc_score:.2f}%"
     else:
-        fairness = "90.00"
-        bias_str = "10.00%"
-        impact = "0.920"
-        acc = "88.00%"
+        fairness_score = 90.00
+        prob_score = 0.85
+        fairness_str = "90.00%"
+        bias_str = "0.0125"
+        impact_str = "0.900"
+        acc_str = "88.00%"
+        risk_level = "Low"
 
     # Top KPI Metrics Row
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        render_html(f'<div class="kpi-card"><div class="kpi-title">Fairness Score</div><div class="kpi-value">{fairness}<span class="kpi-trend">↗ +2.1%</span></div></div>')
+        render_html(f'<div class="kpi-card"><div class="kpi-title">Fairness Score</div><div class="kpi-value">{fairness_str}</div></div>')
     with c2:
-        render_html(f'<div class="kpi-card"><div class="kpi-title">Biasness %</div><div class="kpi-value">{bias_str}<span class="kpi-trend" style="color:#FFB800;">↘ -0.5%</span></div></div>')
+        render_html(f'<div class="kpi-card"><div class="kpi-title">Bias Gap</div><div class="kpi-value">{bias_str}</div></div>')
     with c3:
-        render_html(f'<div class="kpi-card"><div class="kpi-title">Disparate Impact</div><div class="kpi-value">{impact}<span class="kpi-trend">↗ +0.02</span></div></div>')
+        render_html(f'<div class="kpi-card"><div class="kpi-title">Disparate Impact</div><div class="kpi-value">{impact_str}</div></div>')
     with c4:
-        render_html(f'<div class="kpi-card"><div class="kpi-title">Model Accuracy</div><div class="kpi-value">{acc}<span class="kpi-trend">↗ +1.1%</span></div></div>')
+        render_html(f'<div class="kpi-card"><div class="kpi-title">Risk Level</div><div class="kpi-value">{risk_level}</div></div>')
 
     st.markdown("<br><br>", unsafe_allow_html=True)
 
     # 2 Column layout: Chart vs Audit Runs
     col1, col2 = st.columns([2.2, 1])
     with col1:
-        render_html(
-            """
-            <div class="dash-card">
-                <div class="card-header">
-                    Fairness vs Bias Trend
-                    <div>
-                        <span class="badge" style="background:#00FFD1; color:#000;">7 DAYS</span>
-                        <span class="badge" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:#fff; margin-left:8px;">30 DAYS</span>
-                    </div>
-                </div>
-                <div style="height: 250px; display:flex; align-items:flex-end; justify-content:space-between; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-top:40px;">
-                    <!-- Mocking the line chart visually -->
-                    <div style="width:100%; height:150px; position:relative;">
-                        <svg viewBox="0 0 100 40" preserveAspectRatio="none" style="width:100%; height:100%; overflow:visible;">
-                            <!-- Fairness line -->
-                            <path d="M0,35 Q15,25 30,30 T60,20 T100,5" fill="none" stroke="#00FFD1" stroke-width="1.5" />
-                            <!-- Bias line -->
-                            <path d="M0,5 Q15,10 30,8 T60,15 T100,25" fill="none" stroke="#FF5050" stroke-width="1" stroke-dasharray="2 2" />
-                        </svg>
-                    </div>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-top:20px; color:#666; font-size:0.75rem; font-weight:600;">
-                    <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span>
-                </div>
-            </div>
-            """
-        )
+        st.markdown('<h4 style="color:#fff;">Fairness vs Approval Probability</h4>', unsafe_allow_html=True)
+        # Matplotlib integration
+        fig, ax = plt.subplots(figsize=(6, 3))
+        fig.patch.set_facecolor('#111827')
+        ax.set_facecolor('#111827')
+        labels = ["Fairness", "Approval Probability"]
+        values = [fairness_score, prob_score * 100]
+        bars = ax.bar(labels, values, color=['#00FFD1', '#A855F7'])
+        
+        ax.set_ylim(0, 100)
+        ax.tick_params(colors='white')
+        for spine in ax.spines.values():
+            spine.set_edgecolor((1.0, 1.0, 1.0, 0.2))
+            
+        st.pyplot(fig)
+        
     with col2:
-        render_html(
-            """
-            <div class="dash-card" style="margin-bottom: 15px; height: auto;">
-                <div class="card-header" style="margin-bottom: 15px;">Latest Audit Run <span class="badge">PASS</span></div>
-                <div style="font-size:0.7rem; color:rgba(255,255,255,0.3); font-weight:700; text-transform:uppercase; margin-bottom:5px;">RUN ID</div>
-                <div style="font-family:monospace; color:#fff; margin-bottom:15px; font-size:0.85rem;">AMJO-882319-RF-2524</div>
-                <div style="font-size:0.7rem; color:rgba(255,255,255,0.3); font-weight:700; text-transform:uppercase; margin-bottom:5px;">TIMESTAMP</div>
-                <div style="font-family:monospace; color:#fff; margin-bottom:15px; font-size:0.85rem;">Oct 24, 2023 - 14:22:11 GMT</div>
-                <div style="font-size:0.7rem; color:rgba(255,255,255,0.3); font-weight:700; text-transform:uppercase; margin-bottom:5px;">STATUS REPORT</div>
-                <div style="color:rgba(255,255,255,0.6); font-size:0.8rem; line-height:1.5;">Zero critical bias found. Minor drift detected in demographic parity for "Age" feature cluster.</div>
-            </div>
-            <div class="dash-card" style="height: auto;">
-                <div class="card-header" style="margin-bottom:10px;">Pending Warning <span class="badge warn">WARN</span></div>
-                <div style="color:rgba(255,255,255,0.6); font-size:0.8rem; line-height:1.5;">Model calibration required for subgroup 'Region-03'.</div>
-            </div>
-            """
-        )
+        st.markdown('<h4 style="color:#fff;">Latest Audit Report</h4>', unsafe_allow_html=True)
+        if results:
+            st.success("Simulation data available.")
+            if st.button("Toggle Audit Report" if st.session_state.get("show_audit_report", False) else "Generate Audit Report", use_container_width=True):
+                st.session_state.show_audit_report = not st.session_state.get("show_audit_report", False)
+                st.rerun()
+        else:
+            st.warning("No simulation data available. Go to the simulator to run an audit.")
 
     st.markdown("<br><br>", unsafe_allow_html=True)
-    
-    # Core Governance Team
-    render_html('<h3 style="color:#fff; font-size:1.1rem; font-weight:600; margin-bottom:20px;">Core Governance Team</h3>')
-    tc1, tc2, tc3, tc4, tc5 = st.columns(5)
-    
-    team = [
-        ("Alex Thorne", "AL/ML ENGINEER", "👨‍💻"),
-        ("Elena Vance", "BACKEND DEV", "👩‍💻"),
-        ("Maya Koto", "FRONTEND DEV", "👩‍🎨"),
-        ("Julian Read", "DATA ENGINEER", "🧑‍🔬"),
-        ("Sarah Jin", "PRODUCT", "👩‍💼")
-    ]
-    
-    for col, (name, role, emoji) in zip([tc1, tc2, tc3, tc4, tc5], team):
-        with col:
-            render_html(f'<div class="team-card"><div class="team-img" style="display:flex;align-items:center;justify-content:center;font-size:1.8rem;">{emoji}</div><div class="team-name">{name}</div><div class="team-role">{role}</div></div>')
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    if st.session_state.get("show_audit_report", False) and results:
+        st.markdown('<h3 style="color:#fff; font-size:1.3rem; font-weight:700; margin-bottom:20px;">Demographic Fairness Report</h3>', unsafe_allow_html=True)
+        report_data = results.get("report", {})
+        fair_model = report_data.get("fair_model", {})
+        by_group = fair_model.get("by_group", {})
+        
+        if not by_group and "baseline_model" in report_data:
+            by_group = report_data["baseline_model"].get("by_group", {})
+            
+        if by_group:
+            # 3-column layout for the cards to save vertical space
+            cols = st.columns(3)
+            idx = 0
+            for group, metrics in by_group.items():
+                group_name = group.replace("_", " ")
+                sel_rate = metrics.get("selection_rate", 0) * 100
+                tpr = metrics.get("true_positive_rate", 0) * 100
+                fpr = metrics.get("false_positive_rate", 0) * 100
+                fnr = metrics.get("false_negative_rate", 0) * 100
+                count = int(metrics.get("count", 0))
+                
+                tpr_color = "#00FFD1" if tpr > 60 else ("#FFB800" if tpr > 40 else "#FF5050")
+                
+                card_html = f'''
+                <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:16px; margin-bottom:16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                        <span style="font-size:1.2rem;">👥</span>
+                        <h5 style="color:#fff; margin:0; font-size:1rem; font-weight:600;">{group_name}</h5>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="color:#A0AEC0; font-size:0.85rem;">Selection Rate</span>
+                        <span style="color:#FFF; font-weight:600; font-size:0.85rem;">{sel_rate:.2f}%</span>
+                    </div>
+                    <div style="width:100%; background:rgba(255,255,255,0.1); border-radius:4px; height:6px; margin-bottom:12px;">
+                        <div style="width:{sel_rate:.2f}%; background:#A855F7; height:6px; border-radius:4px;"></div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="color:#A0AEC0; font-size:0.85rem;">True Positive Rate</span>
+                        <span style="color:{tpr_color}; font-weight:700; font-size:0.85rem;">{tpr:.2f}%</span>
+                    </div>
+                    <div style="width:100%; background:rgba(255,255,255,0.1); border-radius:4px; height:6px; margin-bottom:12px;">
+                        <div style="width:{tpr:.2f}%; background:{tpr_color}; height:6px; border-radius:4px;"></div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="color:#A0AEC0; font-size:0.85rem;">False Positive Rate</span>
+                        <span style="color:#FFF; font-weight:600; font-size:0.85rem;">{fpr:.2f}%</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                        <span style="color:#A0AEC0; font-size:0.85rem;">False Negative Rate</span>
+                        <span style="color:#FFF; font-weight:600; font-size:0.85rem;">{fnr:.2f}%</span>
+                    </div>
+                    
+                    <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:10px; display:flex; justify-content:space-between;">
+                        <span style="color:#A0AEC0; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em;">Sample Count</span>
+                        <span style="color:#FFF; font-weight:700; font-size:0.85rem;">{count:,}</span>
+                    </div>
+                </div>
+                '''
+                with cols[idx % 3]:
+                    render_html(card_html)
+                idx += 1
+        else:
+            st.warning("No demographic group metrics found in the report.")
+            with st.expander("Raw Data"):
+                st.json(results)
+        
+        st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # # Core Governance Team
+    # render_html('<h3 style="color:#fff; font-size:1.1rem; font-weight:600; margin-bottom:20px;">Core Governance Team</h3>')
+    # tc1, tc2, tc3, tc4, tc5 = st.columns(5)
+    
+    # team = [
+    #     ("Alex Thorne", "AL/ML ENGINEER", "👨‍💻"),
+    #     ("Elena Vance", "BACKEND DEV", "👩‍💻"),
+    #     ("Maya Koto", "FRONTEND DEV", "👩‍🎨"),
+    #     ("Julian Read", "DATA ENGINEER", "🧑‍🔬"),
+    #     ("Sarah Jin", "PRODUCT", "👩‍💼")
+    # ]
+    
+    # for col, (name, role, emoji) in zip([tc1, tc2, tc3, tc4, tc5], team):
+    #     with col:
+    #         render_html(f'<div class="team-card"><div class="team-img" style="display:flex;align-items:center;justify-content:center;font-size:1.8rem;">{emoji}</div><div class="team-name">{name}</div><div class="team-role">{role}</div></div>')
+
+    # st.markdown("<br><br>", unsafe_allow_html=True)
     
     # Analytical Modules
     render_html('<h3 style="color:#fff; font-size:1.1rem; font-weight:600; margin-bottom:20px;">Analytical Modules</h3>')
@@ -382,58 +496,7 @@ def render():
         render_html('<div class="mod-card"><div class="mod-icon">📊</div><div class="mod-title">Bias Score Analyzer</div><div class="mod-desc">Real-time quantification of parity metrics and statistical significance.</div></div>')
         render_html('<div class="mod-card"><div class="mod-icon">💡</div><div class="mod-title">What-If Simulator <span class="badge">V2</span></div><div class="mod-desc">Simulate hypothetical data shifts to stress-test model robustness before release.</div></div>')
 
-    st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2 Column layout: Heatmap vs Performance
-    hc1, hc2 = st.columns(2)
-    with hc1:
-        render_html(
-            """
-            <div class="dash-card">
-                <div class="card-header">Global Fairness Heatmap</div>
-                <div style="height:250px; display:flex; align-items:center; justify-content:center; position:relative;" class="animate-float">
-                    <!-- Placeholder for world map since literal map image asset isn't present, we draw stylized SVG world dots -->
-                    <svg viewBox="0 0 400 200" width="100%" height="100%" opacity="0.6">
-                        <!-- Simplified map shapes or generic interconnected nodes -->
-                        <path d="M50 40 Q80 20 120 50 T200 80 T300 40 T380 90" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-                        <path d="M30 140 Q80 180 150 120 T250 150 T360 120" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-                        <circle cx="120" cy="50" r="3" fill="#00FFD1" style="filter:drop-shadow(0 0 8px #00FFD1);"/>
-                        <circle cx="200" cy="80" r="5" fill="#00FFD1" style="filter:drop-shadow(0 0 10px #00FFD1);"/>
-                        <circle cx="300" cy="40" r="3" fill="#00FFD1"/>
-                        <circle cx="150" cy="120" r="4" fill="#00FFD1" style="filter:drop-shadow(0 0 5px #00FFD1);"/>
-                        <circle cx="250" cy="150" r="2" fill="#00FFD1"/>
-                        <circle cx="360" cy="120" r="4" fill="#00FFD1" style="filter:drop-shadow(0 0 10px #00FFD1);"/>
-                        <circle cx="80" cy="140" r="3" fill="#00FFD1"/>
-                    </svg>
-                </div>
-            </div>
-            """
-        )
-    with hc2:
-         render_html(
-            """
-            <div class="dash-card" style="height: 100%; display: flex; flex-direction: column;">
-                <div class="card-header">Bias Detection Performance</div>
-                <div style="margin-top:20px; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
-                    <div style="display:flex; justify-content:space-between; color:#fff; font-size:0.85rem; margin-bottom:8px;">
-                        <span>Detection Precision</span><span style="color:#00FFD1; font-weight:bold;">98.4%</span>
-                    </div>
-                    <div style="width:100%; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; margin-bottom:30px;">
-                        <div style="width:98.4%; height:100%; background:#00FFD1; border-radius:3px; box-shadow:0 0 10px rgba(0,255,209,0.5);"></div>
-                    </div>
-                    
-                    <div style="display:flex; justify-content:space-between; color:#fff; font-size:0.85rem; margin-bottom:8px;">
-                        <span>Dataset Coverage</span><span style="color:#00FFD1; font-weight:bold;">82.1%</span>
-                    </div>
-                    <div style="width:100%; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; margin-bottom:40px;">
-                        <div style="width:82.1%; height:100%; background:#00FFD1; border-radius:3px; box-shadow:0 0 10px rgba(0,255,209,0.5);"></div>
-                    </div>
-                    
-                    <a href="#" style="background:#00FFD1; color:#000; display:block; text-align:center; padding:12px; border-radius:8px; font-weight:700; font-size:0.85rem; text-decoration:none; margin-top: auto;">GENERATE AUDIT REPORT</a>
-                </div>
-            </div>
-            """
-        )   
 
     st.markdown("<br><br>", unsafe_allow_html=True)
     

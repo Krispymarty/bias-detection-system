@@ -3,6 +3,8 @@ FairSight AI — Main Application Entry Point
 Handles page configuration, CSS loading, sidebar navigation, and page routing.
 """
 import streamlit as st
+from dotenv import load_dotenv
+load_dotenv()
 
 # ✅ INITIALIZE SESSION STATE
 if "current_page" not in st.session_state:
@@ -90,8 +92,6 @@ if current_page not in AUTH_PAGES:
         "Home",
         "About",
         "Tutorial",
-        "Dashboard",
-        "AI Agent",
         "What-If Simulator",
         "Settings",
         "Help & Support",
@@ -100,8 +100,6 @@ if current_page not in AUTH_PAGES:
         "house",
         "info-circle",
         "book",
-        "speedometer2",
-        "robot",
         "sliders",
         "gear",
         "question-circle",
@@ -191,7 +189,6 @@ PAGE_MAP = {
     "Dashboard": dashboard.render,
     "About": about.render,
     "Tutorial": tutorial.render,
-    "AI Agent": ai_agent.render,
     "What-If Simulator": whatif_simulator.render,
     "Settings": settings_page.render,
     "Help & Support": help_support.render,

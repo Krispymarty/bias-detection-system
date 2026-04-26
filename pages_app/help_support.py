@@ -3,6 +3,12 @@ FairSight AI — Help & Support Page
 Search bar, FAQ accordion, contact form, and support links.
 """
 import streamlit as st
+import os
+import time
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 def render_html(html_str):
     """Helper to prevent Streamlit from rendering HTML chunks as Markdown code blocks.
@@ -361,3 +367,102 @@ def render():
         </div>
         """
     )
+
+    # ──────────────────────────────────────────────
+    # AI ASSISTANT SECTION
+    # ──────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("🤖 AI Support Assistant")
+    st.caption("Ask anything about FairSight AI, fairness metrics, reports, or errors.")
+    
+    if "ai_chat_history" not in st.session_state:
+        st.session_state.ai_chat_history = []
+
+    # --- Helper functions (isolated) ---
+    def _build_prompt(user_input):
+        return f"""You are an AI assistant for FairSight AI platform.
+
+Your job:
+- Explain fairness metrics (TPR, FPR, selection rate, etc.)
+- Help debug issues with the platform
+- Guide users in What-If Simulator usage
+- Interpret audit reports and bias detection results
+- Help with API errors (422, connection issues)
+
+Rules:
+- Be clear and professional
+- Be concise
+- Give actionable answers
+- Do not hallucinate
+
+User Question:
+{user_input}
+"""
+
+    def _get_ai_response(user_msg, api_key):
+        """Single attempt to get Gemini response."""
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        prompt = _build_prompt(user_msg)
+        response = model.generate_content(prompt)
+        if not response or not hasattr(response, "text") or not response.text:
+            return "⚠️ AI returned an empty response. Please try again."
+        return response.text.strip()
+
+    def _safe_generate(user_msg, api_key):
+        """Retry wrapper with 2 attempts."""
+        last_error = None
+        for attempt in range(2):
+            try:
+                reply = _get_ai_response(user_msg, api_key)
+                return reply
+            except Exception as e:
+                last_error = str(e)
+                time.sleep(1)
+        return f"❌ Gemini Error: {last_error}"
+
+    # --- Chat Display ---
+    chat_container = st.container()
+    with chat_container:
+        for role, msg in st.session_state.ai_chat_history:
+            if role == "user":
+                st.markdown(f"🧑 **You:** {msg}")
+            else:
+                st.markdown(f"🤖 **Assistant:** {msg}")
+
+    # --- Input ---
+    user_input = st.text_input("Type your question here...", key="ai_input")
+    
+    btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 5])
+    with btn_col1:
+        send_clicked = st.button("Send", key="ai_send")
+    with btn_col2:
+        if st.button("Clear Chat", key="ai_clear"):
+            st.session_state.ai_chat_history = []
+            st.rerun()
+
+    # --- Process Send ---
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    if send_clicked and user_input.strip():
+        st.session_state.ai_chat_history.append(("user", user_input))
+
+        if not genai:
+            bot_reply = "❌ google-generativeai library is not installed. Run: pip install google-generativeai"
+        elif not api_key:
+            bot_reply = "🚫 Gemini API key not configured. Set GEMINI_API_KEY in your .env file."
+        else:
+            with st.spinner("Thinking..."):
+                bot_reply = _safe_generate(user_input, api_key)
+
+        st.session_state.ai_chat_history.append(("bot", bot_reply))
+        st.rerun()
+
+    # --- Debug Panel ---
+    with st.expander("⚙️ AI Debug Info"):
+        st.write("**API Key Present:**", "✅ Yes" if api_key else "❌ No")
+        st.write("**Library Loaded:**", "✅ Yes" if genai else "❌ No")
+        st.write("**Model:**", "gemini-2.0-flash")
+        if api_key:
+            st.write("**Key Preview:**", api_key[:10] + "..." + api_key[-4:])
+

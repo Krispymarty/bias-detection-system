@@ -3,7 +3,7 @@ FairSight AI — Settings Page
 Profile settings, preferences toggles, and account actions.
 """
 import streamlit as st
-from utils.auth import get_user
+from utils.auth import get_user, update_user, logout_user
 
 
 def render_html(html_str):
@@ -14,6 +14,22 @@ def render_html(html_str):
 
 
 def render():
+    user = get_user() or {}
+    user_name = user.get("name", "Guest")
+    user_email = user.get("email", "")
+    user_org = user.get("organization", "")
+    user_role = user.get("role", "")
+    user_bio = user.get("bio", "")
+
+    # Compute initials for avatar
+    parts = user_name.split()
+    if len(parts) >= 2:
+        initials = (parts[0][0] + parts[1][0]).upper()
+    elif user_name:
+        initials = user_name[:2].upper()
+    else:
+        initials = "U"
+
     render_html(
         """
         <style>
@@ -162,23 +178,6 @@ def render():
         }
         .bio-label { color: rgba(255,255,255,0.6); font-size: 0.75rem; margin-bottom: 5px; display: block; }
         
-        .btn-save-wrap { display: flex; justify-content: flex-end; margin-bottom: 40px;}
-        .btn-save {
-            background: #00FFD1;
-            color: #000;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 6px;
-            font-weight: 700;
-            font-size: 0.85rem;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,255,209,0.3);
-            transition: transform 0.2s;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn-save:hover { transform: translateY(-2px); }
-        
         .danger-box {
             background: #111827;
             border: 1px solid rgba(255,100,100,0.2);
@@ -211,7 +210,7 @@ def render():
         """
     )
     
-    # Header & Tab Navigation Mockup
+    # Header & Tab Navigation
     render_html(
         """
         <div class="settings-header">
@@ -233,17 +232,17 @@ def render():
     c1, c2 = st.columns([1, 2.5])
 
     with c1:
-        # User details Card
+        # Dynamic user profile card
         render_html(
-            """
+            f"""
             <div class="prof-card">
                 <div class="avatar-circle">
-                    ER
+                    {initials}
                     <div class="avatar-edit">✏️</div>
                 </div>
-                <div class="prof-name">Elena Rostova</div>
-                <div class="prof-role">Lead Ethics Auditor</div>
-                <div class="prof-org">🏢 FairSight AI</div>
+                <div class="prof-name">{user_name}</div>
+                <div class="prof-role">{user_role or 'Member'}</div>
+                <div class="prof-org">🏢 {user_org or 'Not set'}</div>
             </div>
             
             <div class="quota-card">
@@ -258,31 +257,42 @@ def render():
         )
 
     with c2:
-        # Personal Information
+        # Personal Information — Dynamic inputs
         render_html(
             """<div class="section-header-title"><span>👤</span> Personal Information</div>"""
         )
         
         r1c1, r1c2 = st.columns(2)
-        with r1c1: st.text_input("Full Name", value="Elena Rostova", key="p_name")
-        with r1c2: st.text_input("Email Address", value="elena.rostova@fairsight.ai", key="p_email")
+        with r1c1:
+            edit_name = st.text_input("Full Name", value=user_name, key="p_name")
+        with r1c2:
+            st.text_input("Email Address", value=user_email, key="p_email", disabled=True)
         
         r2c1, r2c2 = st.columns(2)
-        with r2c1: st.text_input("Organization", value="FairSight AI", key="p_org")
-        with r2c2: st.text_input("Role", value="Lead Ethics Auditor", key="p_role")
+        with r2c1:
+            edit_org = st.text_input("Organization", value=user_org, key="p_org")
+        with r2c2:
+            edit_role = st.text_input("Role", value=user_role, key="p_role")
         
-        # Clearance Box & Save Button
-        render_html(
-            """
-            <span class="bio-label">Bio / Clearance Level Notes</span>
-            <div class="clearance-box">
-                Level 4 Clearance. Primary oversight for generative models deployed in European sector.
-            </div>
-            <div class="btn-save-wrap">
-                <a href="#" class="btn-save">💾 Save Changes</a>
-            </div>
-            """
-        )
+        edit_bio = st.text_area("Bio / Clearance Level Notes", value=user_bio, key="p_bio", height=100)
+
+        # Save Changes Button (real, working)
+        if st.button("💾 Save Changes", use_container_width=False):
+            if user_email:
+                updated = {
+                    "name": edit_name,
+                    "organization": edit_org,
+                    "role": edit_role,
+                    "bio": edit_bio,
+                }
+                success = update_user(user_email, updated)
+                if success:
+                    st.success("✅ Profile updated successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to update profile.")
+            else:
+                st.warning("⚠️ No user session found. Please log in first.")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -303,10 +313,8 @@ def render():
                 <div class="danger-txt">
                     Permanently remove your personal account and all associated data from the FairSight AI platform. This action is irreversible.
                 </div>
-                <div class="danger-row">
-                    <div class="danger-label">Delete Account</div>
-                    <a href="#" class="btn-danger">✖ Delete Account</a>
-                </div>
             </div>
             """
         )
+        if st.button("✖ Delete Account", type="secondary"):
+            st.warning("Account deletion is disabled in this version.")

@@ -59,14 +59,34 @@ def handle_callback():
     st.session_state["logged_in"] = True
 
     st.success(f"Welcome {user_info.get('name', '')} 🎉")
+    save_session(user_info)
 
     # ---------- SESSION HELPERS ----------
+SESSION_FILE = "session.json"
+
+def save_session(user):
+    with open(SESSION_FILE, "w") as f:
+        json.dump({"user": user}, f)
+
+def load_session():
+    if not os.path.exists(SESSION_FILE):
+        return None
+    try:
+        with open(SESSION_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return None
 
 def init_auth():
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
-    if "user" not in st.session_state:
-        st.session_state.user = None
+    session = load_session()
+    if session and "user" in session:
+        st.session_state.logged_in = True
+        st.session_state.user = session["user"]
+    else:
+        if "logged_in" not in st.session_state:
+            st.session_state.logged_in = False
+        if "user" not in st.session_state:
+            st.session_state.user = None
 
 
 def is_logged_in():
@@ -80,6 +100,12 @@ def get_user():
 def logout_user():
     st.session_state.logged_in = False
     st.session_state.user = None
+    st.session_state.current_page = "Login"
+    if os.path.exists(SESSION_FILE):
+        try:
+            os.remove(SESSION_FILE)
+        except:
+            pass
 
 def navigate_to(page_name):
     st.session_state.current_page = page_name
@@ -97,11 +123,11 @@ def load_users():
 
 def save_users(users):
     with open(USERS_FILE, "w") as f:
-        json.dump(users, f)
+        json.dump(users, f, indent=4)
 
 
 # ---------- SIGNUP ----------
-def signup_user(name, email, password):
+def signup_user(name, email, password, organization="", role="", bio=""):
     users = load_users()
 
     if email in users:
@@ -109,11 +135,35 @@ def signup_user(name, email, password):
 
     users[email] = {
         "name": name,
-        "password": password
+        "password": password,
+        "organization": organization,
+        "role": role,
+        "bio": bio,
     }
 
     save_users(users)
     return True
+
+
+# ---------- UPDATE USER ----------
+def update_user(email, user_data):
+    """Update an existing user's profile in the DB and session."""
+    users = load_users()
+    if email in users:
+        users[email].update(user_data)
+        save_users(users)
+        # Sync session
+        session_user = {
+            "name": users[email].get("name", ""),
+            "email": email,
+            "organization": users[email].get("organization", ""),
+            "role": users[email].get("role", ""),
+            "bio": users[email].get("bio", ""),
+        }
+        st.session_state["user"] = session_user
+        save_session(session_user)
+        return True
+    return False
 
 
 # ---------- LOGIN ----------
@@ -121,11 +171,16 @@ def login_user(email, password):
     users = load_users()
 
     if email in users and users[email]["password"] == password:
-        st.session_state["user"] = {
+        user_data = {
             "name": users[email]["name"],
-            "email": email
+            "email": email,
+            "organization": users[email].get("organization", ""),
+            "role": users[email].get("role", ""),
+            "bio": users[email].get("bio", ""),
         }
+        st.session_state["user"] = user_data
         st.session_state["logged_in"] = True
+        save_session(user_data)
         return True
 
     return False

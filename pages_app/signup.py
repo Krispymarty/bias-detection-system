@@ -307,10 +307,14 @@ def render():
                 if not fname or not lname or not email or not password or not org or role == "Select..." or not agree:
                     st.error("⚠️ Fill all required fields and accept terms")
                 else:
-                    success = signup_user(f"{fname} {lname}", email, password)
+                    full_name = f"{fname} {lname}"
+                    success = signup_user(full_name, email, password, organization=org, role=role)
                     if success:
+                        # Auto-login after signup
+                        from utils.auth import login_user
+                        login_user(email, password)
                         st.success("✅ Account created successfully!")
-                        st.session_state.current_page = "Login"
+                        st.session_state.current_page = "Home"
                         st.rerun()
                     else:
                         st.error("❌ Email already exists or invalid")

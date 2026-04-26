@@ -29,6 +29,35 @@ def cached_run(_payload_hash, payload):
     return run_audit(payload)
 
 
+def generate_ai_insight(result):
+    if not result or "error" in result:
+        return "⚠️ Simulation could not run properly."
+    fairness = result.get("fairness_score", 0)
+    if fairness < 50:
+        return "⚠️ High bias detected. Consider improving diversity inputs."
+    elif fairness < 80:
+        return "🟡 Moderate fairness. Some bias risk exists."
+    else:
+        return "🟢 Model appears fair and balanced."
+
+def transform_input(data):
+    return {
+        "CODE_GENDER": "M" if data["gender"] == "Male" else "F",
+        "AGE": data["age"],
+        "INCOME_GROUP": "Low" if "Low" in data["income"] else "Medium",
+        "OCCUPATION_TYPE": data["job"],
+        "NAME_EDUCATION_TYPE": data["education"],
+        "AMT_CREDIT": data["credit"],
+
+        # SAFE DEFAULTS (to avoid API error)
+        "AMT_INCOME_TOTAL": 100000,
+        "AMT_ANNUITY": 5000,
+        "EXT_SOURCE_1": 0.5,
+        "EXT_SOURCE_2": 0.5,
+        "EXT_SOURCE_3": 0.5
+    }
+
+
 # ──────────────────────────────────────────────
 # Theme Constants
 # ──────────────────────────────────────────────
@@ -212,6 +241,12 @@ def render():
     ''', unsafe_allow_html=True)
 
     # ── Session State Init ──
+    if "auto_run" not in st.session_state:
+        st.session_state["auto_run"] = False
+        
+    input_data = st.session_state.get("simulation_input", None)
+    auto_run = st.session_state.get("auto_run", False)
+
     if "history" not in st.session_state:
         st.session_state.history = []
     if "sim_results" not in st.session_state:
@@ -300,9 +335,15 @@ def render():
                     st.error(f"🔴 API Error ({resp.get('status')}):")
                     st.code(resp.get("error"))
                     st.session_state.sim_results = {"error": resp.get("error")}
-                else:
-                    st.success("🟢 Simulation Successful")
-                    parsed = parse_audit_response(resp["data"])
+                    if report_resp["ok"]:
+                        st.session_state.sim_report = report_resp["data"]
+                    else:
+                        st.session_state.sim_report = {"error": report_resp.get("error", "Unknown report error")}
+                    
+                    # Store previous result before overwriting
+                    if st.session_state.sim_results and "error" not in st.session_state.sim_results:
+                        st.session_state["previous_result"] = st.session_state.sim_results.copy()
+                        
                     st.session_state.sim_results = parsed
                     st.session_state.sim_input = payload
                     
@@ -310,6 +351,25 @@ def render():
                         st.session_state.sim_report = report_resp["data"]
                     else:
                         st.session_state.sim_report = {"error": report_resp["error"]}
+                    
+                    # Store result locally for dashboard
+                    combined_result = {
+                        "fairness": {
+                            "score": parsed.get("fairness_score", 0)
+                        },
+                        "probability": parsed.get("probability", 0),
+                        "prediction": parsed.get("prediction", "N/A"),
+                        "bias": parsed.get("bias", 0),
+                        "risk": parsed.get("risk", "Unknown"),
+                        "accuracy": parsed.get("accuracy", 0),
+                        "report": st.session_state.sim_report
+                    }
+                    st.session_state["last_result"] = combined_result
+                    try:
+                        with open("last_result.json", "w") as f:
+                            json.dump(combined_result, f)
+                    except Exception:
+                        pass
                     
                     # Save to history
                     run_id = f"Run {len(st.session_state.history) + 1}"
@@ -322,6 +382,46 @@ def render():
                         "raw_response": resp["data"],
                         "report": st.session_state.sim_report
                     })
+                    
+                    st.rerun()
+
+        # ── Auto Run Block ──
+        if input_data and auto_run:
+            st.info("⚡ Running simulation from Home input...")
+            
+            try:
+                features = transform_input(input_data)
+                
+                payload = {
+                    "domain": "lending",
+                    "features": features,
+                    "apply_mitigation": False
+                }
+                
+                resp = cached_run(_make_hashable(payload), payload)
+                report_resp = get_fairness_report()
+                
+                if resp["ok"]:
+                    result = parse_audit_response(resp["data"])
+                    st.session_state["sim_results"] = result
+                    st.session_state["sim_input"] = payload
+                    if report_resp["ok"]:
+                        st.session_state.sim_report = report_resp["data"]
+                    else:
+                        st.session_state.sim_report = {"error": report_resp.get("error", "Unknown report error")}
+                else:
+                    raise Exception(resp.get("error"))
+                    
+            except Exception as e:
+                st.error("API Error")
+                st.write(str(e))
+                
+            # PREVENT LOOP
+            st.session_state["auto_run"] = False
+            
+        result = st.session_state.get("sim_results", None)
+        if result and not "error" in result:
+            st.success("✅ Simulation Completed")
 
         # ── History Panel ──
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
@@ -427,11 +527,13 @@ def render():
             if results and "error" in results:
                 with st.expander("Debug Details"):
                     st.write(results)
+            st.info("👆 Start a simulation from Home page or use the Control Panel")
             return
 
         # ═══════════════════════════════════════
         # LIVE RESULTS
         # ═══════════════════════════════════════
+
         fairness = float(results.get("fairness_score") or 0) if isinstance(results, dict) else 0.0
         probability = float(results.get("probability") or 0) if isinstance(results, dict) else 0.0
         prob_pct = round(probability * 100, 1)
@@ -463,6 +565,29 @@ def render():
             st.markdown(_metric_tile("Bias Gap", f"{bias:.4f}", "🎯", b_color), unsafe_allow_html=True)
         with s2:
             st.markdown(_metric_tile("Risk Level", _risk_badge(risk), "🛡️"), unsafe_allow_html=True)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.info(generate_ai_insight(results))
+        
+        if st.session_state.get("previous_result") and st.session_state.get("previous_result") != results:
+            if st.button("📊 Compare with Previous", use_container_width=True):
+                st.session_state["show_compare_modal"] = True
+                
+        if st.session_state.get("show_compare_modal", False):
+            prev = st.session_state.get("previous_result", {})
+            curr = results
+            st.markdown(f'''
+            <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:16px; margin-top:10px;">
+                <h4 style="color:#fff; margin-bottom:10px;">📉 Run Comparison</h4>
+                <div style="display:flex; justify-content:space-between;">
+                    <div style="color:rgba(255,255,255,0.6); font-size:0.9rem;">Previous Fairness: <b style="color:#FFD700;">{prev.get("fairness_score", 0)}%</b></div>
+                    <div style="color:rgba(255,255,255,0.6); font-size:0.9rem;">Current Fairness: <b style="color:#00FFD1;">{curr.get("fairness_score", 0)}%</b></div>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+            if st.button("Close Comparison"):
+                st.session_state["show_compare_modal"] = False
+                st.rerun()
 
         # ── API Report Rendering ──
         if isinstance(report, dict) and "error" not in report:

@@ -4,6 +4,20 @@ Hero, mission cards, team section, and technology overview.
 """
 import streamlit as st
 import textwrap
+import base64
+import os
+
+def get_img_html(filepath, fallback_emoji):
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode()
+                ext = filepath.split('.')[-1].lower()
+                mime = "jpeg" if ext in ["jpg", "jpeg"] else ext
+                return f'<img src="data:image/{mime};base64,{encoded}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">'
+        except Exception:
+            pass
+    return fallback_emoji
 
 def render_html(html_str):
     """Helper to prevent Streamlit from rendering HTML chunks as Markdown code blocks.
@@ -113,6 +127,13 @@ def render():
         .arch-role { color: #00FFD1; font-size: 0.75rem; font-weight: 700; margin-bottom: 15px; }
         .arch-desc { color: #8b9bb4; font-size: 0.75rem; line-height: 1.5; }
         
+        .arch-img-cont img {
+            border-radius: 50%;
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+        }
+        
         .footer-wrap {
             margin-top: 80px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.05);
             display: flex; justify-content: space-between; align-items: center; color: #6b7280; font-size: 0.75rem;
@@ -213,10 +234,10 @@ def render():
     ac1, ac2, ac3, ac4 = st.columns(4)
     with ac1:
         render_html(
-            """
+            f"""
             <div class="arch-card">
-                <div class="arch-img-cont">👨‍🔬</div>
-                <div class="arch-name">Dr. Elias Vance</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member1.jpg', '👨‍🔬')}</div>
+                <div class="arch-name">Yashmit Singh</div>
                 <div class="arch-role">Chief AI Scientist</div>
                 <div class="arch-desc">Pioneered the 'Blind Node' architecture for unbiased data parsing.</div>
             </div>
@@ -224,10 +245,10 @@ def render():
         )
     with ac2:
         render_html(
-            """
+            f"""
             <div class="arch-card">
-                <div class="arch-img-cont">👩‍💻</div>
-                <div class="arch-name">Sarah Chen</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member2.jpg', '👩‍💻')}</div>
+                <div class="arch-name">Shiva Tyagi</div>
                 <div class="arch-role">Head of Engineering</div>
                 <div class="arch-desc">Former lead architect at a major quantum computing firm.</div>
             </div>
@@ -235,10 +256,10 @@ def render():
         )
     with ac3:
         render_html(
-            """
+            f"""
             <div class="arch-card">
-                <div class="arch-img-cont">🧑‍🏫</div>
-                <div class="arch-name">Marcus Thorne</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member3.jpg', '🧑‍🏫')}</div>
+                <div class="arch-name">Sanyam Gambhir</div>
                 <div class="arch-role">Ethics Director</div>
                 <div class="arch-desc">Ensures all models adhere to the strict FairSight Doctrine.</div>
             </div>
@@ -246,10 +267,10 @@ def render():
         )
     with ac4:
         render_html(
-            """
+            f"""
             <div class="arch-card">
-                <div class="arch-img-cont">👩‍🎨</div>
-                <div class="arch-name">Aisha Patel</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member4.jpg', '👩‍🎨')}</div>
+                <div class="arch-name">Amishi Jain</div>
                 <div class="arch-role">Lead UI/UX</div>
                 <div class="arch-desc">Translating complex AI decisions into the 'Ethereal Arbiter' interface.</div>
             </div>

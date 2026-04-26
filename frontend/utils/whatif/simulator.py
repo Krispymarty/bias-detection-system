@@ -8,7 +8,7 @@ import time
 import os
 from .validators import validate_input
 
-API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
+API_BASE = os.getenv("API_BASE_URL", "https://bias-detection-system.onrender.com")
 
 
 # ──────────────────────────────────────────────

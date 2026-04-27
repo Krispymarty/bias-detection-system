@@ -70,7 +70,7 @@ def run_audit(payload):
 
     for attempt in range(3):
         try:
-            res = requests.post(url, json=payload, timeout=30)
+            res = requests.post(url, json=payload, timeout=120)
             if res.status_code == 200:
                 return {"ok": True, "data": res.json(), "status": 200}
             else:
@@ -98,7 +98,7 @@ def compare_runs(payload):
     """
     url = f"{API_BASE}/v1/audit/compare"
     try:
-        res = requests.post(url, json=payload, timeout=30)
+        res = requests.post(url, json=payload, timeout=120)
         if res.status_code == 200:
             return {"ok": True, "data": res.json()}
         return {"ok": False, "error": res.text, "status": res.status_code}
@@ -113,7 +113,7 @@ def get_fairness_report():
     """Fetch the full before/after fairness metrics report."""
     url = f"{API_BASE}/v1/fairness_report"
     try:
-        res = requests.get(url, timeout=30)
+        res = requests.get(url, timeout=120)
         if res.status_code == 200:
             return {"ok": True, "data": res.json()}
         return {"ok": False, "error": res.text, "status": res.status_code}

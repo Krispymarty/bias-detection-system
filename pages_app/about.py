@@ -1,5 +1,5 @@
 """
-FairSight AI — About Page
+ Debiasiq AI — About Page
 Hero, mission cards, team section, and technology overview.
 """
 import streamlit as st
@@ -120,7 +120,7 @@ def render():
         }
         .arch-card:hover { transform: translateY(-5px); border-color: rgba(0,255,209,0.3); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
         .arch-img-cont {
-            width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; overflow: hidden; border: 2px solid #1a2333;
+            width: 91px; height: 120px; border-radius: 50%; margin: 0 auto 20px; overflow: hidden; border: 2px solid #1a2333;
             background: #111827; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: #fff;
         }
         .arch-name { color: #ffffff; font-size: 1rem; font-weight: 700; margin-bottom: 5px; }
@@ -153,7 +153,7 @@ def render():
             <div class="mission-tag">OUR MISSION</div>
             <div class="hero-title">Building the Ethereal<br>Arbiter</div>
             <div class="hero-subtitle">
-                We are engineering unbiased intelligence. FairSight AI exists to<br>
+                We are engineering unbiased intelligence.  Debiasiq AI exists to<br>
                 dismantle algorithmic prejudice, replacing opaque decision-making<br>
                 with mathematically pure, highly conductive truth.
             </div>
@@ -236,9 +236,9 @@ def render():
         render_html(
             f"""
             <div class="arch-card">
-                <div class="arch-img-cont">{get_img_html('assets/team/member1.jpg', '👨‍🔬')}</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member_1.jpeg', '👨‍🔬')}</div>
                 <div class="arch-name">Yashmit Singh</div>
-                <div class="arch-role">Chief AI Scientist</div>
+                <div class="arch-role">Ml model Training</div>
                 <div class="arch-desc">Pioneered the 'Blind Node' architecture for unbiased data parsing.</div>
             </div>
             """
@@ -247,9 +247,9 @@ def render():
         render_html(
             f"""
             <div class="arch-card">
-                <div class="arch-img-cont">{get_img_html('assets/team/member2.jpg', '👩‍💻')}</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member_2.jpeg', '👩‍💻')}</div>
                 <div class="arch-name">Shiva Tyagi</div>
-                <div class="arch-role">Head of Engineering</div>
+                <div class="arch-role">Full Stack </div>
                 <div class="arch-desc">Former lead architect at a major quantum computing firm.</div>
             </div>
             """
@@ -258,10 +258,10 @@ def render():
         render_html(
             f"""
             <div class="arch-card">
-                <div class="arch-img-cont">{get_img_html('assets/team/member3.jpg', '🧑‍🏫')}</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member_3.jpeg', '🧑‍🏫')}</div>
                 <div class="arch-name">Sanyam Gambhir</div>
-                <div class="arch-role">Ethics Director</div>
-                <div class="arch-desc">Ensures all models adhere to the strict FairSight Doctrine.</div>
+                <div class="arch-role">Automation</div>
+                <div class="arch-desc">Ensures all models adhere to the strict Debiasiq Doctrine.</div>
             </div>
             """
         )
@@ -269,9 +269,9 @@ def render():
         render_html(
             f"""
             <div class="arch-card">
-                <div class="arch-img-cont">{get_img_html('assets/team/member4.jpg', '👩‍🎨')}</div>
+                <div class="arch-img-cont">{get_img_html('assets/team/member_4.jpeg', '👩‍🎨')}</div>
                 <div class="arch-name">Amishi Jain</div>
-                <div class="arch-role">Lead UI/UX</div>
+                <div class="arch-role">Data Cleaning</div>
                 <div class="arch-desc">Translating complex AI decisions into the 'Ethereal Arbiter' interface.</div>
             </div>
             """
@@ -281,14 +281,7 @@ def render():
     render_html(
         """
         <div class="footer-wrap">
-            <div class="footer-logo">FairSight AI</div>
-            <div style="flex-grow:1; text-align:center;">© 2024 FairSight AI. Built for the Ethereal Arbiter.</div>
-            <div class="footer-links">
-                <a href="#">Privacy Policy</a>
-                <a href="#">Terms of Service</a>
-                <a href="#">Github</a>
-                <a href="#">Documentation</a>
-            </div>
+            <div style="flex-grow:1; text-align:center;">© 2024 Debiasiq AI. Built for the Ethereal Arbiter.</div>
         </div>
         """
     )

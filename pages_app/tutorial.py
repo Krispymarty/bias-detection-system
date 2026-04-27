@@ -1,8 +1,22 @@
 """
-FairSight AI — Tutorial Page
+Debiasiq AI — Tutorial Page
 Step-by-step interactive guide with code snippets and architecture layout.
 """
 import streamlit as st
+import base64
+import os
+
+def get_img_html(filepath, fallback_emoji):
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode()
+                ext = filepath.split('.')[-1].lower()
+                mime = "jpeg" if ext in ["jpg", "jpeg"] else ext
+                return f'<img src="data:image/{mime};base64,{encoded}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">'
+        except Exception:
+            pass
+    return fallback_emoji
 
 def render_html(html_str):
     """Helper to prevent Streamlit from rendering HTML chunks as Markdown code blocks.
@@ -155,7 +169,7 @@ def render():
         """
         <div class="hero-title">Mastering <span class="teal-text">Bias Mitigation.</span></div>
         <div class="hero-subtitle">
-            A step-by-step technical guide to integrating FairSight AI's ethereal arbiter into your data pipelines for unprecedented algorithmic justice.
+            A step-by-step technical guide to integrating Debiasiq AI's ethereal arbiter into your data pipelines for unprecedented algorithmic justice.
         </div>
         """
     )
@@ -173,13 +187,13 @@ def render():
                         <div class="step-title">Data Ingestion Protocol</div>
                     </div>
                     <div class="step-desc">
-                        Begin by connecting your primary data reservoirs. FairSight AI securely authenticates and streams data, identifying potential demographic or contextual anomalies at the source.
+                        Begin by connecting your primary data reservoirs. Deibasiq AI securely authenticates and streams data, identifying potential demographic or contextual anomalies at the source.
                     </div>
                     
                     <div class="code-container">
                         <div class="code-header">Python</div>
                         <div class="code-col">
-                            <span class="ky">from</span> fairsight <span class="ky">import</span> EtherealArbiter<br><br>
+                            <span class="ky">from</span> Debiasiq <span class="ky">import</span> EtherealArbiter<br><br>
                             <span class="cm"># Initialize the arbiter instance</span><br>
                             arbiter <span class="op">=</span> EtherealArbiter<span class="op">(</span>api_key<span class="op">=</span><span class="st">"YOUR_KEY"</span><span class="op">)</span><br><br>
                             <span class="cm"># Connect data reservoir</span><br>
@@ -267,7 +281,7 @@ def render():
             <div class="side-card prereq-card">
                 <div class="prereq-title">Prerequisites</div>
                 <div class="prereq-item"><div class="prereq-icon">✔</div><div>Python 3.9+ Environment</div></div>
-                <div class="prereq-item"><div class="prereq-icon">✔</div><div>Valid FairSight API Key</div></div>
+                <div class="prereq-item"><div class="prereq-icon">✔</div><div>Valid Debiasiq API Key</div></div>
                 <div class="prereq-item"><div class="prereq-icon">✔</div><div>Access to standardized CSV/JSON datasets</div></div>
             </div>
             """
@@ -287,16 +301,9 @@ def render():
 
     # Footer
     render_html(
-        """
+        f"""
         <div class="footer-wrap">
-            <div class="footer-logo">FairSight AI</div>
-            <div style="flex-grow:1; text-align:center;">© 2024 FairSight AI. The Ethereal Arbiter of Data Justice.</div>
-            <div class="footer-links">
-                <a href="#">Privacy Policy</a>
-                <a href="#">Terms of Service</a>
-                <a href="#">API Docs</a>
-                <a href="#">Community</a>
-            </div>
+            <div style="flex-grow:1; text-align:center;">© 2024 Debiasiq AI. The Ethereal Arbiter of Data Justice.</div>
         </div>
         """
     )

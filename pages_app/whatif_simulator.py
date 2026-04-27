@@ -6,8 +6,9 @@ import streamlit as st
 import json
 import plotly.graph_objects as go
 from datetime import datetime
-from utils.whatif.simulator import build_payload, run_audit, compare_runs, get_fairness_report, parse_audit_response
+from utils.whatif.simulator import run_audit, compare_runs, get_fairness_report, parse_audit_response
 from utils.whatif.pdf_report import generate_pdf_report
+from utils.firebase_logger import log_simulation
 
 
 def _make_hashable(d):
@@ -244,7 +245,7 @@ def render():
     if "auto_run" not in st.session_state:
         st.session_state["auto_run"] = False
         
-    input_data = st.session_state.get("simulation_input", None)
+    home_input = st.session_state.get("simulation_input", None)
     auto_run = st.session_state.get("auto_run", False)
 
     if "history" not in st.session_state:
@@ -265,31 +266,14 @@ def render():
     with input_col:
         st.markdown('<div class="panel-label">⚙️ Control Panel</div>', unsafe_allow_html=True)
 
-        gender_ratio = st.slider(
-            "Adjust female representation (%)",
-            min_value=5, max_value=95, value=50, step=1,
-            help="Simulate different gender distributions in the population"
-        )
-
-        age_range = st.slider(
-            "Select population age boundaries",
-            min_value=18, max_value=80, value=(25, 55),
-            help="Define the age range for synthetic data generation"
-        )
-
-        income_diversity = st.slider(
-            "Simulate income distribution diversity",
-            min_value=0, max_value=10, value=5, step=1,
-            help="Higher values create wider income spread"
-        )
-
-        education_bias = st.slider(
-            "Control education-based bias weight",
-            min_value=0, max_value=10, value=3, step=1,
-            help="Higher values skew towards lower educational attainment"
-        )
-
-        # sample_size removed — not used by API payload
+        home_state = st.session_state.get("simulation_input", {})
+        
+        gender = st.selectbox("👤 Who are you?", ["Male", "Female"], index=["Male", "Female"].index(home_state.get("gender", "Male")))
+        job = st.selectbox("💼 Work Type", ["Private Job", "Self-Employed", "Student", "Unemployed"], index=["Private Job", "Self-Employed", "Student", "Unemployed"].index(home_state.get("job", "Private Job")))
+        age = st.slider("🎂 Age Group", 18, 65, int(home_state.get("age", 25)))
+        education = st.selectbox("🎓 Education", ["School", "Graduate", "Postgraduate"], index=["School", "Graduate", "Postgraduate"].index(home_state.get("education", "School")))
+        income = st.selectbox("💰 Income Category", ["Low Income", "Middle Income", "High Income"], index=["Low Income", "Middle Income", "High Income"].index(home_state.get("income", "Low Income")))
+        credit = st.slider("🏦 Loan Requirement", 1000, 1000000, int(home_state.get("credit", 50000)))
 
         model_type = st.selectbox(
             "Select ML model",
@@ -304,12 +288,12 @@ def render():
 
         mitigation_toggle = st.toggle("Apply Bias Mitigation", value=False)
         input_data = {
-            "gender_ratio": gender_ratio,
-            "age_min": age_range[0],
-            "age_max": age_range[1],
-            "income_diversity": income_diversity,
-            "education_bias": education_bias,
-            "mitigation_toggle": mitigation_toggle
+            "gender": gender,
+            "age": age,
+            "income": income,
+            "job": job,
+            "education": education,
+            "credit": credit
         }
 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
@@ -322,7 +306,15 @@ def render():
         )
 
         if run_clicked:
-            payload = build_payload(input_data)
+            st.session_state.firebase_logged = False
+            # Sync inputs back to home so changes here reflect on the home page too
+            st.session_state["simulation_input"] = input_data
+            
+            payload = {
+                "domain": "lending",
+                "features": transform_input(input_data),
+                "apply_mitigation": mitigation_toggle
+            }
             
             with st.expander("Debug API (Request)"):
                 st.json(payload)
@@ -335,6 +327,10 @@ def render():
                     st.error(f"🔴 API Error ({resp.get('status')}):")
                     st.code(resp.get("error"))
                     st.session_state.sim_results = {"error": resp.get("error")}
+                else:
+                    # Parse the raw API response into a normalised flat dict
+                    parsed = parse_audit_response(resp["data"])
+                    
                     if report_resp["ok"]:
                         st.session_state.sim_report = report_resp["data"]
                     else:
@@ -345,14 +341,26 @@ def render():
                         st.session_state["previous_result"] = st.session_state.sim_results.copy()
                         
                     st.session_state.sim_results = parsed
+                    
+                    user = st.session_state.get("user")
+                    user_email = user.get("email", "guest") if user else "guest"
+                    
+                    try:
+                        fairness_score = float(parsed.get("fairness_score", 0))
+                    except (ValueError, TypeError):
+                        fairness_score = 0.0
+                        
+                    try:
+                        bias_gap = float(parsed.get("bias", 0))
+                    except (ValueError, TypeError):
+                        bias_gap = 0.0
+                        
+                    disparate_impact = fairness_score / 100.0 if fairness_score else 0.0
+                    risk_level = str(parsed.get("risk", "Unknown"))
+                    
                     st.session_state.sim_input = payload
                     
-                    if report_resp["ok"]:
-                        st.session_state.sim_report = report_resp["data"]
-                    else:
-                        st.session_state.sim_report = {"error": report_resp["error"]}
-                    
-                    # Store result locally for dashboard
+                    # Store result locally for dashboard (fairness_score is now a top-level key)
                     combined_result = {
                         "fairness": {
                             "score": parsed.get("fairness_score", 0)
@@ -386,11 +394,12 @@ def render():
                     st.rerun()
 
         # ── Auto Run Block ──
-        if input_data and auto_run:
+        if home_input and auto_run:
+            st.session_state.firebase_logged = False
             st.info("⚡ Running simulation from Home input...")
             
             try:
-                features = transform_input(input_data)
+                features = transform_input(home_input)
                 
                 payload = {
                     "domain": "lending",
@@ -404,6 +413,23 @@ def render():
                 if resp["ok"]:
                     result = parse_audit_response(resp["data"])
                     st.session_state["sim_results"] = result
+                    
+                    user = st.session_state.get("user")
+                    user_email = user.get("email", "guest") if user else "guest"
+                    
+                    try:
+                        fairness_score = float(result.get("fairness_score", 0))
+                    except (ValueError, TypeError):
+                        fairness_score = 0.0
+                        
+                    try:
+                        bias_gap = float(result.get("bias", 0))
+                    except (ValueError, TypeError):
+                        bias_gap = 0.0
+                        
+                    disparate_impact = fairness_score / 100.0 if fairness_score else 0.0
+                    risk_level = str(result.get("risk", "Unknown"))
+                    
                     st.session_state["sim_input"] = payload
                     if report_resp["ok"]:
                         st.session_state.sim_report = report_resp["data"]
@@ -422,6 +448,47 @@ def render():
         result = st.session_state.get("sim_results", None)
         if result and not "error" in result:
             st.success("✅ Simulation Completed")
+
+            # --- FIREBASE LOGGING TRIGGER BLOCK ---
+            if "firebase_logged" not in st.session_state:
+                st.session_state.firebase_logged = False
+
+            if not st.session_state.firebase_logged:
+                user = st.session_state.get("user")
+                user_email = user.get("email", "guest") if user else "guest"
+                
+                try:
+                    fairness_score = float(result.get("fairness_score", 0))
+                except (ValueError, TypeError):
+                    fairness_score = 0.0
+                    
+                try:
+                    bias_gap = float(result.get("bias", 0))
+                except (ValueError, TypeError):
+                    bias_gap = 0.0
+                    
+                disparate_impact = fairness_score / 100.0 if fairness_score else 0.0
+                risk_level = str(result.get("risk", "Unknown"))
+
+                from firebase_admin import firestore
+
+                data = {
+                    "user_id": user_email,
+                    "fairness_score": fairness_score,
+                    "bias_gap": bias_gap,
+                    "disparate_impact": disparate_impact,
+                    "risk_level": risk_level,
+                    "timestamp": firestore.SERVER_TIMESTAMP
+                }
+
+                try:
+                    from utils.firebase_logger import log_simulation
+                    log_simulation(data)
+                    st.session_state.firebase_logged = True
+                    print("✅ Firebase log inserted")
+                except Exception as e:
+                    print("❌ Firebase logging failed:", e)
+            # --- END FIREBASE LOGGING TRIGGER BLOCK ---
 
         # ── History Panel ──
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)

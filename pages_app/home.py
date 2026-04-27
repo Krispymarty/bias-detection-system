@@ -308,12 +308,9 @@ def render():
             # ADD FLAGS (DO NOT TOUCH OTHER STATE)
             st.session_state["auto_run"] = True
             st.session_state["from_home"] = True
-            try:
-                st.switch_page("pages_app/whatif_simulator.py")
-            except Exception as e:
-                # Fallback if switch_page fails depending on streamllit version
-                st.session_state["current_page"] = "whatif_simulator"
-                st.rerun()
+            # Custom App Routing
+            st.session_state["current_page"] = "What-If Simulator"
+            st.rerun()
             
         st.markdown('</div>', unsafe_allow_html=True)
 

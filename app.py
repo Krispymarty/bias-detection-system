@@ -1,15 +1,27 @@
 """
-FairSight AI — Main Application Entry Point
+Debiasiq AI — Main Application Entry Point
 Handles page configuration, CSS loading, sidebar navigation, and page routing.
 """
 import streamlit as st
+st.set_page_config(
+    page_title=" Debiasiq AI — AI Fairness Platform",
+    page_icon="assets/team/logo.jpeg",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+import base64
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# ✅ INITIALIZE SESSION STATE
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "Login"   # or "Home" if you want
-import streamlit as st
+# 🔥 HARD SESSION INITIALIZATION (MANDATORY)
+if "auth_initialized" not in st.session_state:
+    st.session_state["logged_in"] = False
+    st.session_state["user"] = None
+    st.session_state["auth_initialized"] = True
+    st.session_state["current_page"] = "Login"
+
 from streamlit_option_menu import option_menu
 from utils.auth import init_auth, is_logged_in, get_user, logout_user
 from pages_app import (
@@ -24,22 +36,6 @@ from pages_app import (
     settings_page,
     help_support,
 )
-
-# ──────────────────────────────────────────────
-# Page Configuration
-# ──────────────────────────────────────────────
-st.set_page_config(
-    page_title="FairSight AI — AI Fairness Platform",
-    page_icon="🔮",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
-from utils.auth import init_auth
-
-init_auth()
-
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "Login"
 
 # ──────────────────────────────────────────────
 # CSS / Font Loading
@@ -67,22 +63,45 @@ st.markdown(
 # Custom theme CSS (loaded after Tailwind so it takes precedence)
 st.markdown(f"<style>{load_css()}</style>", unsafe_allow_html=True)
 
+def get_base64_image(filepath):
+    if os.path.exists(filepath):
+        with open(filepath, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
 
 # ──────────────────────────────────────────────
 # Initialise Authentication State
 # ──────────────────────────────────────────────
 init_auth()
 
+from datetime import datetime, timedelta
+
+if is_logged_in() and "login_time" in st.session_state:
+    try:
+        login_time = datetime.fromisoformat(st.session_state["login_time"])
+        if datetime.now() - login_time > timedelta(hours=2):
+            st.toast("Session expired. Please sign in again.", icon="⏱️")
+            logout_user()
+            st.rerun()
+    except Exception:
+        pass
+
 if st.session_state.get("show_welcome_animation"):
     st.balloons()
-    st.toast("Welcome to FairSight AI!", icon="🚀")
+    st.toast("Welcome to Debiasiq AI!", icon="🚀")
     st.session_state.show_welcome_animation = False
 
 # ──────────────────────────────────────────────
 # Auth pages get full-screen layout (no sidebar)
 # ──────────────────────────────────────────────
 AUTH_PAGES = {"Sign Up", "Login"}
-current_page = st.session_state.get("current_page", "Sign Up")
+current_page = st.session_state.get("current_page", "Login")
+
+# GLOBAL AUTH GUARD (CRITICAL)
+if current_page not in AUTH_PAGES and not is_logged_in():
+    st.session_state.current_page = "Login"
+    st.rerun()
 
 if current_page not in AUTH_PAGES:
     # ──────────────────────────────────────────
@@ -109,12 +128,18 @@ if current_page not in AUTH_PAGES:
 
     with st.sidebar:
         # Logo
+        logo_base64 = get_base64_image("assets/team/logo.jpeg")
+        if logo_base64:
+            logo_html = f'<img src="data:image/jpeg;base64,{logo_base64}" style="width:70px; height:70px; border-radius:14px; margin: 0 auto 15px; display: block; object-fit:cover; border:1px solid rgba(0,255,209,0.3);">'
+        else:
+            logo_html = '<div style="font-size:2.2rem;margin-bottom:0.2rem;">🔮</div>'
+
         st.markdown(
-            """
+            f"""
             <div style="text-align:center;padding:1.2rem 0 0.8rem;
                         border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:0.8rem;">
-                <div style="font-size:2.2rem;margin-bottom:0.2rem;">🔮</div>
-                <h1 style="font-size:1.25rem;font-weight:700;color:white;margin:0;">FairSight AI</h1>
+                {logo_html}
+                <h1 style="font-size:1.25rem;font-weight:700;color:white;margin:0;"> Debiasiq AI</h1>
                 <p style="font-size:0.7rem;color:rgba(255,255,255,0.35);margin:0;letter-spacing:0.06em;">
                     AI FAIRNESS PLATFORM
                 </p>
@@ -194,5 +219,9 @@ PAGE_MAP = {
     "Help & Support": help_support.render,
 }
 
-page_fn = PAGE_MAP.get(st.session_state.current_page, home.render)
-page_fn()
+try:
+    page_fn = PAGE_MAP.get(st.session_state.current_page, home.render)
+    page_fn()
+except Exception as e:
+    st.error("🔥 Unhandled runtime error")
+    st.exception(e)

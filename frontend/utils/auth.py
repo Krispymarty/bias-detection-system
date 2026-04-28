@@ -65,28 +65,19 @@ def handle_callback():
 SESSION_FILE = "session.json"
 
 def save_session(user):
-    with open(SESSION_FILE, "w") as f:
-        json.dump({"user": user}, f)
+    """No-op: persistence removed to prevent cross-user session leakage."""
+    pass
 
 def load_session():
-    if not os.path.exists(SESSION_FILE):
-        return None
-    try:
-        with open(SESSION_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return None
+    """No-op: persistence removed to prevent cross-user session leakage."""
+    return None
 
 def init_auth():
-    session = load_session()
-    if session and "user" in session:
-        st.session_state.logged_in = True
-        st.session_state.user = session["user"]
-    else:
-        if "logged_in" not in st.session_state:
-            st.session_state.logged_in = False
-        if "user" not in st.session_state:
-            st.session_state.user = None
+    """Initialise auth state in memory."""
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "user" not in st.session_state:
+        st.session_state.user = None
 
 
 def is_logged_in():

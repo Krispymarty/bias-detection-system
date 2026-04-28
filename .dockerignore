@@ -1,11 +1,17 @@
+# ──────────────────────────────────────────────
+# Docker Ignore — Debiasiq AI
+# ──────────────────────────────────────────────
+
 # Version Control
 .git
 .gitignore
 
-# Environment Variables & Secrets
+# Environment Variables & Secrets (injected at runtime)
 .env
 *.env
 secret/
+.streamlit/secrets.toml
+firebase_key.json
 
 # Python Cache & Bytecode
 __pycache__/
@@ -24,7 +30,6 @@ logs/
 reports/
 scripts/
 api_audit.jsonl
-*.png
 
 # Exclude development tests
 test_*.py
@@ -33,7 +38,17 @@ test_*.py
 data/*.csv
 !data/final_merged_cleaned.csv
 
-# Allow pipeline joblib models but block anything else random
+# Allow pipeline joblib models but block temporary files
 pipeline/*.tmp
 !pipeline/*.joblib
 !pipeline/*.json
+
+# Nested duplicate repo (not needed in the Docker image)
+bias-detection-system/
+
+# Build/IDE artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+.cache/

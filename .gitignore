@@ -61,7 +61,7 @@ logs/
 # ======================
 # Streamlit
 # ======================
-.streamlit/
+.streamlit/secrets.toml
 
 # ======================
 # Jupyter Notebook
@@ -87,6 +87,7 @@ Thumbs.db
 *.json
 !pipeline/*.json
 !users.json
+!render.yaml
 
 # ======================
 # IDEs

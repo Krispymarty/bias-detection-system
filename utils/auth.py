@@ -77,29 +77,12 @@ def handle_callback():
     # ---------- SESSION HELPERS ----------
 
 def _save_session():
-    """Save current auth state to a local file for reload persistence."""
-    try:
-        data = {
-            "logged_in": True,
-            "user": st.session_state.get("user"),
-            "login_time": st.session_state.get("login_time", str(datetime.now())),
-        }
-        with open(SESSION_FILE, "w") as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        print(f"🔥 Session save error: {e}")
+    """No-op: persistence removed to prevent cross-user session leakage."""
+    pass
 
 
 def _load_session():
-    """Load saved session from file. Returns dict or None."""
-    try:
-        if os.path.exists(SESSION_FILE):
-            with open(SESSION_FILE, "r") as f:
-                data = json.load(f)
-            if data.get("logged_in"):
-                return data
-    except Exception as e:
-        print(f"🔥 Session load error: {e}")
+    """No-op: persistence removed to prevent cross-user session leakage."""
     return None
 
 
@@ -113,17 +96,11 @@ def _clear_session_file():
 
 
 def init_auth():
-    """Initialise auth state from file or memory."""
-    # If already logged in from memory, skip
-    if st.session_state.get("logged_in"):
-        return
-
-    # Try restoring from persisted session file
-    saved = _load_session()
-    if saved:
-        st.session_state["logged_in"] = True
-        st.session_state["user"] = saved.get("user")
-        st.session_state["login_time"] = saved.get("login_time")
+    """Initialise auth state in memory."""
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "user" not in st.session_state:
+        st.session_state.user = None
 
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False

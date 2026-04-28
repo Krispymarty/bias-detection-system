@@ -470,7 +470,12 @@ def render():
                 disparate_impact = fairness_score / 100.0 if fairness_score else 0.0
                 risk_level = str(result.get("risk", "Unknown"))
 
-                from firebase_admin import firestore
+                try:
+                    from firebase_admin import firestore as _fs
+                    _timestamp = _fs.SERVER_TIMESTAMP
+                except ImportError:
+                    from datetime import datetime as _dt
+                    _timestamp = _dt.now().isoformat()
 
                 data = {
                     "user_id": user_email,
@@ -478,7 +483,7 @@ def render():
                     "bias_gap": bias_gap,
                     "disparate_impact": disparate_impact,
                     "risk_level": risk_level,
-                    "timestamp": firestore.SERVER_TIMESTAMP
+                    "timestamp": _timestamp
                 }
 
                 try:
